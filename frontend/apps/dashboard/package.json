@@ -1,0 +1,25 @@
+{
+  "name": "@pcc/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Merchant dashboard. M0/M1: shell + gate status; payout config, API keys and intents land in M6/M7.",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pcc/api-types": "workspace:*",
+    "@pcc/checkout-sdk": "workspace:*",
+    "next": "16.4.5",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}

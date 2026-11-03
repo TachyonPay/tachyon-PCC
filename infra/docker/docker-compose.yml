@@ -1,0 +1,27 @@
+# Local development dependencies only. Nothing here reaches the public internet
+# and no service in this file holds signing keys.
+#
+#   docker compose -f infra/docker/docker-compose.yml up -d
+#   export DATABASE_URL=postgres://pcc:pcc@127.0.0.1:5432/pcc
+#   (cd backend && sqlx migrate run --source crates/storage/migrations)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pcc-postgres
+    environment:
+      POSTGRES_USER: pcc
+      POSTGRES_PASSWORD: pcc # dev only; never reuse
+      POSTGRES_DB: pcc
+    ports:
+      - "127.0.0.1:5432:5432" # loopback only
+    volumes:
+      - pcc-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pcc -d pcc"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pcc-pgdata:

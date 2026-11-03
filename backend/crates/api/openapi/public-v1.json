@@ -1,0 +1,104 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Private Crypto Checkout — public API",
+    "description": "Merchant and checkout API. M0/M1: meta endpoints only; payment-intent endpoints land in M6.",
+    "license": {
+      "name": "UNLICENSED",
+      "identifier": "UNLICENSED"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Service is up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/meta/gates": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "gates",
+        "responses": {
+          "200": {
+            "description": "Current execution gates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatesView"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "GatesView": {
+        "type": "object",
+        "description": "Execution-gate status. Read-only; gates can only be changed via environment.",
+        "required": [
+          "dry_run",
+          "enable_mainnet_transfers",
+          "mock_authenticator_allowed"
+        ],
+        "properties": {
+          "dry_run": {
+            "type": "boolean"
+          },
+          "enable_mainnet_transfers": {
+            "type": "boolean"
+          },
+          "mock_authenticator_allowed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "description": "Liveness response.",
+        "required": [
+          "ok",
+          "service",
+          "version"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "service": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "meta",
+      "description": "Liveness and execution gates"
+    }
+  ]
+}

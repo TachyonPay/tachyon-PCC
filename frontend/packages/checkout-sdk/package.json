@@ -1,0 +1,22 @@
+{
+  "name": "@pcc/checkout-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser/Node client for the public API. M0/M1: typed meta endpoints only; payment-intent methods land in M6.",
+  "type": "module",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pcc/api-types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  }
+}

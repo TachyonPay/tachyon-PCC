@@ -1,11 +1,19 @@
 //! Axum application. M0/M1 exposes health and gate status only; merchant and
 //! payment endpoints are added in M6 on top of the same router.
+//!
+//! The public merchant/checkout API contract is Rust-owned: `PublicApiDoc`
+//! is exported to `openapi/public-v1.json` and the frontend `@pcc/api-types`
+//! package is generated from it (same pattern as the internal contract).
 
 use axum::{extract::State, routing::get, Json, Router};
 use pcc_payments::ExecutionGates;
 use serde::Serialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use utoipa::{OpenApi, ToSchema};
+
+/// Public API semantic version. Bump on breaking changes.
+pub const PUBLIC_API_VERSION: &str = "0.1.0";
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -34,20 +42,24 @@ pub struct AppState {
     pub config: Arc<Config>,
 }
 
-#[derive(Serialize)]
-struct Health {
-    ok: bool,
-    service: &'static str,
-    version: &'static str,
+/// Liveness response.
+#[derive(Serialize, ToSchema)]
+pub struct Health {
+    pub ok: bool,
+    pub service: &'static str,
+    pub version: &'static str,
 }
 
-#[derive(Serialize)]
-struct GatesView {
-    dry_run: bool,
-    enable_mainnet_transfers: bool,
-    mock_authenticator_allowed: bool,
+/// Execution-gate status. Read-only; gates can only be changed via environment.
+#[derive(Serialize, ToSchema)]
+pub struct GatesView {
+    pub dry_run: bool,
+    pub enable_mainnet_transfers: bool,
+    pub mock_authenticator_allowed: bool,
 }
 
+#[utoipa::path(get, path = "/health", tag = "meta",
+    responses((status = 200, description = "Service is up", body = Health)))]
 async fn health() -> Json<Health> {
     Json(Health {
         ok: true,
@@ -56,6 +68,8 @@ async fn health() -> Json<Health> {
     })
 }
 
+#[utoipa::path(get, path = "/v1/meta/gates", tag = "meta",
+    responses((status = 200, description = "Current execution gates", body = GatesView)))]
 async fn gates(State(state): State<AppState>) -> Json<GatesView> {
     let allow_flag = std::env::var("ALLOW_MOCK_AUTHENTICATOR").ok();
     Json(GatesView {
@@ -63,6 +77,23 @@ async fn gates(State(state): State<AppState>) -> Json<GatesView> {
         enable_mainnet_transfers: state.config.gates.enable_mainnet_transfers,
         mock_authenticator_allowed: pcc_auth::mock_authenticator_allowed(allow_flag.as_deref()).is_ok(),
     })
+}
+
+/// Rust-owned public OpenAPI document (merchant + checkout surface).
+#[derive(OpenApi)]
+#[openapi(
+    info(title = "Private Crypto Checkout — public API", version = PUBLIC_API_VERSION,
+         description = "Merchant and checkout API. M0/M1: meta endpoints only; payment-intent endpoints land in M6."),
+    paths(health, gates),
+    components(schemas(Health, GatesView)),
+    tags((name = "meta", description = "Liveness and execution gates"))
+)]
+pub struct PublicApiDoc;
+
+impl PublicApiDoc {
+    pub fn to_pretty_json() -> String {
+        Self::openapi().to_pretty_json().expect("openapi serialises")
+    }
 }
 
 pub fn router(config: Config) -> Router {
@@ -116,5 +147,19 @@ mod tests {
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(v["dry_run"], true);
         assert_eq!(v["enable_mainnet_transfers"], false);
+    }
+
+    /// Drift guard: the committed public OpenAPI must match the Rust types.
+    /// Regenerate with `cargo run -p pcc-api --bin export-public-openapi`.
+    #[test]
+    fn committed_public_openapi_matches_rust_types() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/openapi/public-v1.json");
+        let committed = std::fs::read_to_string(path).expect("openapi/public-v1.json is committed");
+        let committed: serde_json::Value = serde_json::from_str(&committed).unwrap();
+        let generated: serde_json::Value = serde_json::from_str(&PublicApiDoc::to_pretty_json()).unwrap();
+        assert_eq!(
+            committed, generated,
+            "public OpenAPI drifted; re-run export-public-openapi"
+        );
     }
 }

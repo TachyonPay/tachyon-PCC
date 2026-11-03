@@ -1,0 +1,19 @@
+{
+  "name": "@pcc/frontend",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.11.1",
+  "scripts": {
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "pnpm -r --if-present run lint",
+    "test": "pnpm -r --if-present run test",
+    "build": "pnpm -r --if-present run build",
+    "gen:types": "pnpm --filter @pcc/api-types run gen"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

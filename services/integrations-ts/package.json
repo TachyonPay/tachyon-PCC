@@ -1,0 +1,37 @@
+{
+  "name": "@pcc/integrations-ts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private integration worker: NEAR Intents 1Click (quotes, signature verification, status) and ZeroDev Kernel session-key adapters. Loopback only; not a public API.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gen:types": "openapi-typescript ../../backend/crates/integration_client/openapi/internal-v1.json -o src/generated/internal-api.d.ts",
+    "start": "tsx src/server/index.ts",
+    "live:dry-quote": "tsx scripts/live-dry-quote.ts",
+    "live:tokens": "tsx scripts/live-tokens.ts"
+  },
+  "dependencies": {
+    "@defuse-protocol/one-click-sdk-typescript": "0.1.26",
+    "@zerodev/ecdsa-validator": "5.4.9",
+    "@zerodev/permissions": "5.6.4",
+    "@zerodev/sdk": "5.5.11",
+    "viem": "2.57.16",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@scure/base": "1.2.6",
+    "@types/node": "24.19.2",
+    "openapi-typescript": "7.13.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  }
+}

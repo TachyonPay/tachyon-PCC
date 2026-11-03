@@ -1,0 +1,116 @@
+name: ci
+
+# Offline CI. No job makes a live call to 1Click, ZeroDev or any RPC; the
+# worker/test suites are fed dummy env values and mocked HTTP. Live checks are
+# owner-run only (see docs/runbooks/live-checks.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  DRY_RUN: "true"
+  ENABLE_MAINNET_TRANSFERS: "false"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  rust:
+    name: rust (fmt, clippy pedantic, tests, openapi drift)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace --all-features
+      - name: OpenAPI drift (internal + public contracts must match committed JSON)
+        run: |
+          cargo run -q -p pcc-integration-client --bin export-internal-openapi -- /tmp/internal.json
+          cargo run -q -p pcc-api --bin export-public-openapi -- /tmp/public.json
+          diff -u crates/integration_client/openapi/internal-v1.json /tmp/internal.json
+          diff -u crates/api/openapi/public-v1.json /tmp/public.json
+
+  integrations-ts:
+    name: integrations-ts (typecheck, tests, generated types drift)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/integrations-ts
+    env:
+      INTEGRATIONS_INTERNAL_TOKEN: ci-dummy-token-not-a-secret-0000
+      INTEGRATIONS_BIND_HOST: 127.0.0.1
+      INTEGRATIONS_BIND_PORT: "8787"
+      ONECLICK_BASE_URL: https://1click.chaindefuser.com
+      # ONECLICK_API_KEY intentionally unset: live scripts refuse to run.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: services/integrations-ts/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm gen:types && git diff --exit-code -- src/generated
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm audit --prod --audit-level=high
+
+  frontend:
+    name: frontend (typecheck, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm gen:types && git diff --exit-code -- packages/api-types/src
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  secrets-hygiene:
+    name: secrets hygiene (no .env, no key material)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No committed .env files
+        run: |
+          if git ls-files | grep -E '(^|/)\.env(\..+)?$' | grep -v '\.env\.example$'; then
+            echo "::error::.env file committed"; exit 1; fi
+      - name: No obvious key material
+        run: |
+          # 64-hex private keys, mnemonics, or pasted API keys in tracked text files.
+          if git grep -nE '(0x)?[0-9a-fA-F]{64}\b' -- ':!*.lock' ':!pnpm-lock.yaml' ':!*.json' ':!*.md' ':!*.rs' ':!*.ts' ; then
+            echo "::warning::64-hex literal found; review above (test vectors are allowed in .rs/.ts/.json)"; fi
+          if git grep -nE 'PRIVATE_KEY=|MNEMONIC=|TOTP_SEED=' -- ':!.env.example' ':!*.md' ':!.github/**'; then
+            echo "::error::credential assignment in tracked file"; exit 1; fi
