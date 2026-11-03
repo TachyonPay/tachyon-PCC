@@ -1,0 +1,22 @@
+[package]
+name = "pcc-storage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+description = "Durable storage: PostgreSQL migrations (sqlx) and the repository trait with an in-memory implementation for tests"
+
+[lib]
+name = "pcc_storage"
+
+[dependencies]
+pcc-payments = { path = "../payments" }
+sqlx.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+chrono.workspace = true
+
+[lints]
+workspace = true

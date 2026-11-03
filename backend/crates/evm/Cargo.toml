@@ -1,0 +1,21 @@
+[package]
+name = "pcc-evm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "EVM helpers: deposit call construction (native vs ERC-20), EIP-7702 delegation inspection. Alloy provider/signer executor arrives in M2."
+
+[lib]
+name = "pcc_evm"
+
+[dependencies]
+pcc-payments = { path = "../payments" }
+alloy-primitives.workspace = true
+alloy-sol-types.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

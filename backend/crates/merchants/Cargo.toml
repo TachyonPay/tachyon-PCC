@@ -1,0 +1,20 @@
+[package]
+name = "pcc-merchants"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+description = "Merchant payout configuration rules and tenant access checks"
+
+[lib]
+name = "pcc_merchants"
+
+[dependencies]
+pcc-payments = { path = "../payments" }
+alloy-primitives.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+
+[lints]
+workspace = true

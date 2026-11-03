@@ -1,0 +1,26 @@
+[package]
+name = "pcc-settlement"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+description = "Settlement worker: bounded status polling, status reconciliation into the attempt state machine"
+
+[lib]
+name = "pcc_settlement"
+
+[dependencies]
+pcc-payments = { path = "../payments" }
+pcc-storage = { path = "../storage" }
+chrono.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+pcc-payments = { path = "../payments", features = ["mock"] }
+tokio.workspace = true
+alloy-primitives.workspace = true
+
+[lints]
+workspace = true

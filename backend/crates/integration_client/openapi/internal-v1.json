@@ -1,0 +1,826 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PCC Internal Integration API",
+    "description": "Private Rust -> TS worker boundary. Loopback only. Bearer token required. Not a public API.",
+    "license": {
+      "name": "UNLICENSED",
+      "identifier": "UNLICENSED"
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/internal/v1/health": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/near/assets": {
+      "get": {
+        "tags": [
+          "near"
+        ],
+        "operationId": "near_assets",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/near/deposit-submitted": {
+      "post": {
+        "tags": [
+          "near"
+        ],
+        "operationId": "near_deposit_submitted",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepositSubmittedDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/near/quote": {
+      "post": {
+        "tags": [
+          "near"
+        ],
+        "operationId": "near_quote",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifiedQuoteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "authorizationRef reused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "no route / signature invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/near/status": {
+      "get": {
+        "tags": [
+          "near"
+        ],
+        "operationId": "near_status",
+        "parameters": [
+          {
+            "name": "depositAddress",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "depositMemo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwapStatusDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/near/verify": {
+      "post": {
+        "tags": [
+          "near"
+        ],
+        "operationId": "near_verify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifiedQuoteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AckResponse": {
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AssetsResponse": {
+        "type": "object",
+        "required": [
+          "tokens",
+          "fetchedAt"
+        ],
+        "properties": {
+          "fetchedAt": {
+            "type": "string"
+          },
+          "tokens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TokenEntry"
+            }
+          }
+        }
+      },
+      "BaseUnits": {
+        "type": "string",
+        "description": "Token quantity in base units as a decimal integer string (never a float).",
+        "pattern": "^[0-9]+$"
+      },
+      "Confidentiality": {
+        "type": "string",
+        "description": "1Click `confidentiality`.",
+        "enum": [
+          "public",
+          "basic",
+          "advanced"
+        ]
+      },
+      "DepositMode": {
+        "type": "string",
+        "description": "1Click `depositMode`.",
+        "enum": [
+          "SIMPLE",
+          "MEMO"
+        ]
+      },
+      "DepositSubmittedDto": {
+        "type": "object",
+        "required": [
+          "depositAddress",
+          "txHash"
+        ],
+        "properties": {
+          "depositAddress": {
+            "type": "string"
+          },
+          "txHash": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorBody": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorCode": {
+        "type": "string",
+        "description": "Stable machine-readable error codes returned by the worker.",
+        "enum": [
+          "UNAUTHORIZED",
+          "INVALID_REQUEST",
+          "AUTH_REF_REUSED",
+          "UPSTREAM_TIMEOUT",
+          "UPSTREAM_UNAUTHORIZED",
+          "UPSTREAM_RATE_LIMITED",
+          "UPSTREAM_REJECTED",
+          "UPSTREAM_UNAVAILABLE",
+          "MALFORMED_UPSTREAM",
+          "SIGNATURE_INVALID",
+          "NO_ROUTE",
+          "INTERNAL"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "service",
+          "apiVersion",
+          "oneClickSdkVersion",
+          "zerodevSdkVersion"
+        ],
+        "properties": {
+          "apiVersion": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "oneClickSdkVersion": {
+            "type": "string",
+            "description": "Installed `@defuse-protocol/one-click-sdk-typescript` version."
+          },
+          "service": {
+            "type": "string"
+          },
+          "zerodevSdkVersion": {
+            "type": "string",
+            "description": "Installed `@zerodev/sdk` version."
+          }
+        }
+      },
+      "OneClickStatus": {
+        "type": "string",
+        "description": "Exact mirror of the 1Click `GET /v0/status` enum (API v0.1.10).",
+        "enum": [
+          "KNOWN_DEPOSIT_TX",
+          "PENDING_DEPOSIT",
+          "INCOMPLETE_DEPOSIT",
+          "PROCESSING",
+          "SUCCESS",
+          "REFUNDED",
+          "FAILED"
+        ]
+      },
+      "QuoteRequestDto": {
+        "type": "object",
+        "required": [
+          "dry",
+          "authorizationRef",
+          "originAssetId",
+          "destinationAssetId",
+          "amountOut",
+          "recipient",
+          "refundTo",
+          "confidentiality",
+          "slippageBps",
+          "deadline"
+        ],
+        "properties": {
+          "amountOut": {
+            "$ref": "#/components/schemas/BaseUnits",
+            "description": "EXACT_OUTPUT amount in destination base units."
+          },
+          "authorizationRef": {
+            "type": "string",
+            "description": "Single-use reference issued by Rust for this quote request."
+          },
+          "confidentiality": {
+            "$ref": "#/components/schemas/Confidentiality"
+          },
+          "deadline": {
+            "type": "string",
+            "description": "ISO-8601 deadline forwarded to 1Click."
+          },
+          "destinationAssetId": {
+            "type": "string"
+          },
+          "dry": {
+            "type": "boolean",
+            "description": "`true` = preview (no deposit address). `false` requires an unused `authorizationRef`."
+          },
+          "originAssetId": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "refundTo": {
+            "type": "string"
+          },
+          "slippageBps": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "StatusQuery": {
+        "type": "object",
+        "required": [
+          "depositAddress"
+        ],
+        "properties": {
+          "depositAddress": {
+            "type": "string"
+          },
+          "depositMemo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SwapStatusDto": {
+        "type": "object",
+        "required": [
+          "status",
+          "updatedAt"
+        ],
+        "properties": {
+          "amountIn": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BaseUnits"
+              }
+            ]
+          },
+          "amountOut": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BaseUnits"
+              }
+            ]
+          },
+          "destinationTxHashes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "originTxHashes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "refundedAmount": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BaseUnits"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/OneClickStatus"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "SwapType": {
+        "type": "string",
+        "description": "1Click `swapType`. Only `EXACT_OUTPUT` is accepted for payments.",
+        "enum": [
+          "EXACT_INPUT",
+          "EXACT_OUTPUT",
+          "FLEX_INPUT",
+          "ANY_INPUT"
+        ]
+      },
+      "TokenEntry": {
+        "type": "object",
+        "description": "Raw 1Click `/v0/tokens` entry (passed through; Rust does the chain mapping).",
+        "required": [
+          "assetId",
+          "blockchain",
+          "symbol",
+          "decimals",
+          "priceUsd",
+          "priceUpdatedAt"
+        ],
+        "properties": {
+          "assetId": {
+            "type": "string"
+          },
+          "blockchain": {
+            "type": "string"
+          },
+          "contractAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decimals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "priceUpdatedAt": {
+            "type": "string"
+          },
+          "priceUsd": {
+            "type": "string",
+            "description": "USD price as a decimal string (informational only; never used for amounts)."
+          },
+          "symbol": {
+            "type": "string"
+          }
+        }
+      },
+      "VerifiedQuoteDto": {
+        "type": "object",
+        "required": [
+          "correlationId",
+          "signature",
+          "signatureVerified",
+          "dry",
+          "swapType",
+          "confidentiality",
+          "depositMode",
+          "originAssetId",
+          "destinationAssetId",
+          "recipient",
+          "refundTo",
+          "amountIn",
+          "minAmountIn",
+          "amountOut",
+          "minAmountOut",
+          "quoteTimestamp",
+          "timeEstimateSeconds",
+          "rawResponseJson"
+        ],
+        "properties": {
+          "amountIn": {
+            "$ref": "#/components/schemas/BaseUnits"
+          },
+          "amountOut": {
+            "$ref": "#/components/schemas/BaseUnits"
+          },
+          "confidentiality": {
+            "$ref": "#/components/schemas/Confidentiality"
+          },
+          "correlationId": {
+            "type": "string"
+          },
+          "deadline": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "depositAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "depositMemo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "depositMode": {
+            "$ref": "#/components/schemas/DepositMode"
+          },
+          "destinationAssetId": {
+            "type": "string"
+          },
+          "dry": {
+            "type": "boolean"
+          },
+          "minAmountIn": {
+            "$ref": "#/components/schemas/BaseUnits"
+          },
+          "minAmountOut": {
+            "$ref": "#/components/schemas/BaseUnits"
+          },
+          "originAssetId": {
+            "type": "string"
+          },
+          "quoteTimestamp": {
+            "type": "string"
+          },
+          "rawResponseJson": {
+            "type": "string",
+            "description": "Exact JSON returned by 1Click, stored immutably for disputes."
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "refundTo": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "signatureVerified": {
+            "type": "boolean",
+            "description": "Result of `verifyQuoteSignature()` in the worker. Rust re-checks this flag\nand still applies its own business rules."
+          },
+          "swapType": {
+            "$ref": "#/components/schemas/SwapType"
+          },
+          "timeEstimateSeconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "VerifyRequestDto": {
+        "type": "object",
+        "required": [
+          "rawResponseJson"
+        ],
+        "properties": {
+          "rawResponseJson": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "meta"
+    },
+    {
+      "name": "near"
+    }
+  ]
+}
