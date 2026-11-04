@@ -82,13 +82,52 @@ Date: 2026-11-03. Owner machine: macOS, rustc 1.88.0, Node 24.0.0, pnpm 10.11.1.
 
 ## Live calls
 
-None yet. `.env` does not exist on the owner machine at the time of writing,
-so `ONECLICK_API_KEY` is absent and both live scripts refuse to run (exit 2).
-Procedure: `docs/runbooks/live-checks.md`. Results will be appended below.
+Run 2026-11-04 16:52 UTC after the owner installed `ONECLICK_API_KEY` in the
+git-ignored `.env` (presence checked only; value never printed; confirmed never
+present in any commit). Both calls are read-only. Procedure:
+`docs/runbooks/live-checks.md`.
 
-### Live results (to be appended by the owner-run step)
+### `pnpm live:tokens` — `GET /v0/tokens` (exit 0)
 
-_pending_
+EVM matrix returned by 1Click (asset counts per chain, USDC asset ids):
+
+| chain | chainId | assets | USDC asset id |
+| --- | --- | --- | --- |
+| eth | 1 | 29 | `nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near` (dec 6) |
+| base | 8453 | 18 | `nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near` (dec 6) |
+| arb | 42161 | 7 | `nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near` (dec 6) |
+| bsc | 56 | 10 | `nep245:v2_1.omni.hot.tg:56_…` (**dec 18**) |
+| gnosis | 100 | 9 | `nep141:gnosis-0x2a22…omft.near` (dec 6) |
+| op | 10 | 6 | `nep245:v2_1.omni.hot.tg:10_…` (dec 6) |
+| pol | 137 | 5 | `nep245:v2_1.omni.hot.tg:137_…` (dec 6) |
+| avax | 43114 | 3 | `nep245:v2_1.omni.hot.tg:43114_…` (dec 6) |
+| scroll | 534352 | 2 | none (ETH, USDT only) |
+
+Observations: two asset-id families coexist (`nep141:<chain>-<addr>.omft.near`
+and `nep245:v2_1.omni.hot.tg:<chainId>_<id>`); our `AssetId` carries the 1Click
+id verbatim so both work. BSC USDC is 18-decimals — decimals must always come
+from the token list, never assumed from the symbol (the code already does this).
+
+### `pnpm live:dry-quote` — `POST /v0/quote` `dry:true` (exit 0)
+
+Base USDC → Arbitrum USDC, `EXACT_OUTPUT`, `confidentiality: basic`,
+placeholder recipient/refund. Redacted output:
+
+```
+signatureVerified: true          (official verifyQuoteSignature, prod manager key)
+dry: true   swapType: EXACT_OUTPUT   confidentiality: basic   depositMode: SIMPLE
+originAssetId:      nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near
+destinationAssetId: nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near
+amountOut: 1000000   minAmountOut: 1000000
+amountIn:  1015663   minAmountIn:  1005506     (≈1.57 % buffer, ≈0.55 % floor)
+quoteTimestamp: 2026-11-04T16:52:02.818Z   timeEstimateSeconds: 34
+depositAddress present: false (expected for dry)
+correlationId: 8f3407b7-a1bc-402c-99cf-dda30602e031
+```
+
+Echo-binding passed (confidentiality/depositMode/deadline matched what we
+sent). The server accepted `confidentiality: basic` and echoed it, confirming
+the field is live on the production API, not only in the SDK model.
 
 ## Docs ↔ API differences found
 
