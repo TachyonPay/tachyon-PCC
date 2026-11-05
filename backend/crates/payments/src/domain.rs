@@ -136,11 +136,15 @@ pub struct PaymentAttempt {
     /// Hard cap presented to and authorized by the payer.
     pub max_debit: BaseUnits,
     pub quote_signature: String,
+    /// Exact 1Click JSON (immutable). Used to re-verify after restart.
+    pub quote_raw_response: String,
     pub quote_expires_at: DateTime<Utc>,
     pub deposit_address: Option<String>,
     pub deposit_memo: Option<String>,
     pub source_tx_hash: Option<String>,
     pub destination_tx_hash: Option<String>,
+    /// Owner's per-transaction approval reference (set at execute).
+    pub approval_ref: Option<String>,
     pub status: PaymentAttemptStatus,
 }
 
@@ -251,11 +255,13 @@ mod tests {
             quoted_input: BaseUnits::from_u128(1_010_000),
             max_debit: BaseUnits::from_u128(1_010_000),
             quote_signature: "ed25519:sig".into(),
+            quote_raw_response: "{}".into(),
             quote_expires_at: Utc::now(),
             deposit_address: None,
             deposit_memo: None,
             source_tx_hash: None,
             destination_tx_hash: None,
+            approval_ref: None,
             status: PaymentAttemptStatus::Quoted,
         };
         (intent, attempt)

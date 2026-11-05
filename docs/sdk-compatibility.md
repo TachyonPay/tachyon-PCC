@@ -84,6 +84,11 @@ to the M3 gate.
   require newer rustc, so the lockfile pins: `uuid 1.18.1`, `ruint 1.16.0`,
   `alloy-sol-types/-macro/-macro-expander/-macro-input/alloy-json-abi/syn-solidity 1.3.1`
   (`alloy-primitives` 1.7.3). CI uses `dtolnay/rust-toolchain@1.88.0`.
+* Alloy **1.6.3** (exact pin, plus matching `alloy-consensus` / `alloy-network` /
+  `alloy-provider` / `alloy-signer*` / `alloy-rpc-types-eth` / `alloy-node-bindings`).
+  Alloy 2.x requires rustc 1.94; we stay on 1.6.x until the toolchain moves.
+  Features: `providers`, `provider-http`, `signers`, `signer-local`,
+  `reqwest-rustls-tls`, `sol-types`. No `approve` helpers are used.
 * `sqlx 0.8.6` with `macros,migrate,postgres,runtime-tokio,tls-rustls`.
 * `utoipa 5` generates both OpenAPI documents.
 * Clippy pedantic + `-D warnings`; `unsafe_code = forbid`; `cast_precision_loss = deny`.

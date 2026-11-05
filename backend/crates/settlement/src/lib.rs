@@ -120,11 +120,13 @@ mod tests {
             quoted_input: BaseUnits::from_u128(1),
             max_debit: BaseUnits::from_u128(1),
             quote_signature: "s".into(),
+            quote_raw_response: "{}".into(),
             quote_expires_at: Utc::now(),
             deposit_address: Some("0xdep".into()),
             deposit_memo: None,
             source_tx_hash: Some("0xaaa".into()),
             destination_tx_hash: None,
+            approval_ref: None,
             status,
         }
     }

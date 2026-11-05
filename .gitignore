@@ -25,6 +25,10 @@ contracts/out/
 contracts/cache/
 contracts/broadcast/
 
+# Local executor state (signed-tx ledger + last preflight). Never commit.
+.pcc-ledger/
+.pcc-work/
+
 # OS / editor
 .DS_Store
 .idea/

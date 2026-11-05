@@ -54,6 +54,9 @@ pub trait Repository: Send + Sync {
     /// Record the source tx hash exactly once; a second distinct hash is an error
     /// (protects against double-broadcast after restart).
     async fn record_source_tx(&self, id: PaymentAttemptId, tx_hash: &str) -> Result<(), StorageError>;
+    /// Bind a per-transaction owner approval to the attempt. Refuses to change
+    /// an already-set different ref (same restart-safety rule as the tx hash).
+    async fn record_approval(&self, id: PaymentAttemptId, approval_ref: &str) -> Result<(), StorageError>;
 }
 
 #[derive(Default)]
@@ -135,6 +138,21 @@ impl Repository for InMemoryRepository {
             ))),
         }
     }
+
+    async fn record_approval(&self, id: PaymentAttemptId, approval_ref: &str) -> Result<(), StorageError> {
+        let mut m = self.attempts.lock().await;
+        let a = m.get_mut(&id).ok_or(StorageError::NotFound)?;
+        match &a.approval_ref {
+            None => {
+                a.approval_ref = Some(approval_ref.to_owned());
+                Ok(())
+            }
+            Some(existing) if existing == approval_ref => Ok(()),
+            Some(existing) => Err(StorageError::Db(format!(
+                "attempt {id} already has approval {existing}; refusing {approval_ref}"
+            ))),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -186,11 +204,13 @@ mod tests {
             quoted_input: BaseUnits::from_u128(2),
             max_debit: BaseUnits::from_u128(2),
             quote_signature: "s".into(),
+            quote_raw_response: "{}".into(),
             quote_expires_at: chrono_now(),
             deposit_address: None,
             deposit_memo: None,
             source_tx_hash: None,
             destination_tx_hash: None,
+            approval_ref: None,
             status: PaymentAttemptStatus::Quoted,
         }
     }

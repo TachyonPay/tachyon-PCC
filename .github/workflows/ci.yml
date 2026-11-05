@@ -35,6 +35,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.88.0
         with:
           components: rustfmt, clippy
+      - uses: foundry-rs/foundry-toolchain@v1
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend

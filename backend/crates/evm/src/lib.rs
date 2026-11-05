@@ -1,9 +1,26 @@
-//! EVM building blocks used by the plain-EOA `SourceExecutor` (M2) and by
-//! wallet-credential inspection (M3).
+//! EVM building blocks and the plain-EOA [`SourceExecutor`] (M2).
 //!
-//! No network access lives here yet; the Alloy provider + signer executor is
-//! added in M2 behind the execution gates. Keeping this crate pure makes the
-//! calldata and delegation logic unit-testable without an RPC.
+//! Calldata construction and EIP-7702 inspection stay pure (no network). The
+//! Alloy executor talks to an RPC, but every broadcast is gated by
+//! [`pcc_payments::ExecutionGates`] and a persist-then-send ledger.
 
 pub mod delegation;
+pub mod envfile;
+pub mod executor;
+pub mod flow;
+pub mod keys;
+pub mod ledger;
+pub mod plan;
 pub mod transfer;
+
+pub use executor::AlloyEoaExecutor;
+pub use flow::{
+    execute_approved, prepare_deposit, redacted_preflight, watch_until, FlowError, PreflightReport, PrepareParams,
+};
+pub use keys::load_signer;
+pub use ledger::FileLedger;
+pub use plan::plan_from_quote;
+pub use transfer::{build_deposit_call, decode_erc20_transfer, encode_erc20_transfer, CallError, DepositCall};
+
+#[cfg(test)]
+mod anvil_tests;

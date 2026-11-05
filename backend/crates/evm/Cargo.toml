@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "EVM helpers: deposit call construction (native vs ERC-20), EIP-7702 delegation inspection. Alloy provider/signer executor arrives in M2."
+description = "EVM helpers and the plain-EOA SourceExecutor (Alloy): deposit calldata, EIP-7702 inspection, simulate/broadcast/receipt behind execution gates."
 
 [lib]
 name = "pcc_evm"
@@ -14,8 +14,42 @@ name = "pcc_evm"
 pcc-payments = { path = "../payments" }
 alloy-primitives.workspace = true
 alloy-sol-types.workspace = true
+alloy.workspace = true
+# Version pins only (see workspace Cargo.toml); used indirectly through `alloy`.
+alloy-consensus.workspace = true
+alloy-eips.workspace = true
+alloy-genesis.workspace = true
+alloy-json-rpc.workspace = true
+alloy-network.workspace = true
+alloy-network-primitives.workspace = true
+alloy-rpc-types-eth.workspace = true
+alloy-serde.workspace = true
+alloy-signer.workspace = true
+pcc-storage = { path = "../storage" }
+pcc-settlement = { path = "../settlement" }
+pcc-integration-client = { path = "../integration_client" }
+async-trait.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+sha2.workspace = true
+hex.workspace = true
+chrono.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+tracing-subscriber.workspace = true
+
+[[bin]]
+name = "pcc-deposit"
+path = "src/bin/pcc-deposit.rs"
+
+[dev-dependencies]
+alloy-node-bindings.workspace = true
+pcc-payments = { path = "../payments", features = ["mock"] }
+tempfile = "3"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 
 [lints]
 workspace = true

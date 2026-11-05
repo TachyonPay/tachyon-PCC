@@ -34,6 +34,21 @@ utoipa = { version = "5", features = ["uuid", "chrono"] }
 # evm
 alloy-primitives = { version = "1", features = ["serde"] }
 alloy-sol-types = "1"
+# Alloy 1.6.x is the last line with MSRV 1.88 (2.x needs rustc 1.94). Pinned exactly.
+alloy = { version = "=1.6.3", default-features = false, features = [
+    "std", "consensus", "network", "providers", "provider-http", "rpc-types", "signers", "signer-local", "reqwest-rustls-tls", "sol-types",
+] }
+alloy-node-bindings = "=1.6.3"
+# Sub-crates pinned to the same line so the resolver cannot mix in 1.8.x (rustc 1.91).
+alloy-consensus = "=1.6.3"
+alloy-eips = "=1.6.3"
+alloy-genesis = "=1.6.3"
+alloy-json-rpc = "=1.6.3"
+alloy-network = "=1.6.3"
+alloy-network-primitives = "=1.6.3"
+alloy-rpc-types-eth = "=1.6.3"
+alloy-serde = "=1.6.3"
+alloy-signer = "=1.6.3"
 
 # db
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "migrate", "macros"] }

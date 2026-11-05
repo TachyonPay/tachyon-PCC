@@ -5,10 +5,11 @@ chain and the merchant receives their configured asset, with the cross-chain leg
 routed through **NEAR Intents 1Click** in *confidential* mode and the payer side
 authorised by a **bounded, single-use EIP-7702 / ZeroDev Kernel session key**.
 
-Status: **M0 + M1 delivered** (foundation + live 1Click adapter, dry quotes
-only). No code path in this repository can move funds yet: `DRY_RUN=true` and
-`ENABLE_MAINNET_TRANSFERS=false` are compiled-in defaults and every value-moving
-operation additionally requires an explicit owner approval reference.
+Status: **M0 + M1 + M2 delivered** (foundation, live 1Click dry quotes, and a
+gated plain-EOA deposit executor). Nothing broadcasts on mainnet: `DRY_RUN=true`
+and `ENABLE_MAINNET_TRANSFERS=false` are compiled-in defaults, every value-moving
+operation needs an explicit owner approval reference, and the M2 live swap is
+waiting on that per-transaction approval.
 
 ## Layout
 
@@ -16,7 +17,7 @@ operation additionally requires an explicit owner approval reference.
 backend/                 Rust workspace (Cargo) — product core
   crates/payments        domain, amounts (U256), asset identity, state machines, quote rules, gates, adapter traits
   crates/integration_client  Rust-OWNED OpenAPI for the internal boundary + reqwest client (OneClickAdapter impl)
-  crates/evm             Alloy: ERC-20 transfer calldata, EIP-7702 delegation parsing
+  crates/evm             Alloy 1.6.3: ERC-20/native deposit calldata, EIP-7702 inspection, gated EOA executor + persist-then-broadcast ledger
   crates/auth            API keys (hash + constant-time verify), mock-authenticator gate
   crates/merchants       merchant / payout-config / payment-intent rules
   crates/storage         sqlx migrations + repository trait + in-memory impl
@@ -89,6 +90,7 @@ cd services/integrations-ts && pnpm live:tokens && pnpm live:dry-quote
 | Default dry-run, mainnet off, only exact `"true"`/`"false"` flips a gate | `pcc_payments::ExecutionGates` |
 | Broadcast needs an approval reference even when gates are open | `ExecutionGates::check_broadcast` |
 | Never `approve()` ERC-20 spending; only `transfer` calldata is built | `pcc_evm::transfer` |
+| Persist the signed raw tx *before* `eth_sendRawTransaction`; restart rebroadcasts the same hash | `pcc_evm::ledger` + `AlloyEoaExecutor` |
 | Never overwrite an unfamiliar EIP-7702 delegation | `pcc_evm::delegation`, `@pcc/wallet-onboarding` |
 | Session-key call policy fixes target, selector, recipient and max amount | `services/integrations-ts/src/account-abstraction/policy.ts` |
 | Single-use authorisation refs for executable quotes | `NearService.quote`, `MockOneClick` |
@@ -100,8 +102,8 @@ cd services/integrations-ts && pnpm live:tokens && pnpm live:dry-quote
 | | Scope | Status |
 | --- | --- | --- |
 | M0 | Foundation, contracts, mocks, CI | done |
-| M1 | Live 1Click adapter, dry quotes, signature verification | done (live run pending owner key) |
-| M2 | Direct EOA deposit executor (Alloy), testnet | next — gated |
+| M1 | Live 1Click adapter, dry quotes, signature verification | done (live dry quote recorded) |
+| M2 | Direct EOA deposit executor (Alloy), Anvil + gated mainnet | done (live swap waiting on owner approval) |
 | M3 | ZeroDev Kernel session keys + EIP-7702 onboarding | gated |
 | M4 | Checkout flow end-to-end on testnet | gated |
 | M5 | Confidential swap example | gated |

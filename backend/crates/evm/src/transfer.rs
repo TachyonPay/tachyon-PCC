@@ -65,6 +65,15 @@ pub fn encode_erc20_transfer(to: Address, amount: U256) -> Bytes {
     IERC20::transferCall { to, amount }.abi_encode().into()
 }
 
+#[must_use]
+pub fn encode_erc20_balance_of(owner: Address) -> Bytes {
+    IERC20::balanceOfCall { owner }.abi_encode().into()
+}
+
+pub fn decode_erc20_balance_of(data: &[u8]) -> Result<U256, alloy_sol_types::Error> {
+    IERC20::balanceOfCall::abi_decode_returns(data)
+}
+
 /// Decode ERC-20 `transfer` calldata (used by tests and by the executor's
 /// self-check that what it is about to sign is exactly what was planned).
 pub fn decode_erc20_transfer(data: &[u8]) -> Result<(Address, U256), alloy_sol_types::Error> {

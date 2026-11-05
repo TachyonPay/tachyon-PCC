@@ -20,6 +20,8 @@ impl ChainId {
     pub const AVALANCHE: Self = Self(43114);
     pub const SCROLL: Self = Self(534_352);
     pub const SEPOLIA: Self = Self(11_155_111);
+    /// Anvil/Hardhat local chain. Never a mainnet candidate.
+    pub const ANVIL: Self = Self(31_337);
 
     /// Map a 1Click `blockchain` slug to an EVM chain id.
     ///
