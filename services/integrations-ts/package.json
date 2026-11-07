@@ -16,6 +16,7 @@
     "gen:types": "openapi-typescript ../../backend/crates/integration_client/openapi/internal-v1.json -o src/generated/internal-api.d.ts",
     "start": "tsx src/server/index.ts",
     "live:dry-quote": "tsx scripts/live-dry-quote.ts",
+    "live:eoa-preflight": "tsx scripts/live-eoa-preflight.ts",
     "live:tokens": "tsx scripts/live-tokens.ts"
   },
   "dependencies": {

@@ -33,7 +33,16 @@ describe("call policy builder", () => {
     expect(policy.getPolicyData().toLowerCase()).toContain(DEPOSIT.slice(2).toLowerCase());
   });
 
-  it("refuses wildcard / zero recipients, zero caps, bad addresses", () => {
+  it("POC option C: omitted recipient leaves `to` unconstrained, still caps amount", () => {
+    const perm = buildErc20TransferPermission({ token: USDC_BASE, maxAmount: 1_020_000n });
+    expect(perm.args?.[0]).toBeNull();
+    expect(perm.args?.[1]).toMatchObject({ value: 1_020_000n });
+    const policy = buildCallPolicy([perm]);
+    expect(policy.getPolicyData()).toMatch(/^0x[0-9a-f]+$/i);
+    expect(policy.getPolicyData().toLowerCase()).not.toContain(DEPOSIT.slice(2).toLowerCase());
+  });
+
+  it("refuses zero recipients, zero caps, bad addresses", () => {
     expect(() => buildErc20TransferPermission({ token: USDC_BASE, recipient: zeroAddress, maxAmount: 1n })).toThrow(PolicyInputError);
     expect(() => buildErc20TransferPermission({ token: USDC_BASE, recipient: DEPOSIT, maxAmount: 0n })).toThrow(PolicyInputError);
     expect(() => buildErc20TransferPermission({ token: "0x12" as never, recipient: DEPOSIT, maxAmount: 1n })).toThrow(PolicyInputError);

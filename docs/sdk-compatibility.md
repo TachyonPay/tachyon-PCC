@@ -73,10 +73,12 @@ v3.3 / EP 0.7 and treat any v4 migration as a separate reviewed milestone.
 conditions at grant time, but 1Click deposit addresses are *per quote*. A
 session key therefore cannot pre-authorise "transfer to whatever deposit
 address the next quote returns". Options documented in `policy.ts`:
-A) grant per quote (one short-lived permission per attempt; our default
-candidate), B) route through an owner-controlled forwarder with a fixed
-address, C) use the plain-EOA executor for the deposit leg. Decision deferred
-to the M3 gate.
+A) grant per quote (owner signs each payment), B) owner-controlled forwarder
+with a payment-bound hash, C) **POC default:** `transfer` on an allowlisted
+token with `amount <= cap` and **any recipient** (session key can drain
+`maxAmount` per UserOp if compromised; cap is not cumulative). A signature-
+bound executor (B) is the intended follow-up. `buildErc20TransferPermission`
+omits the recipient constraint when `recipient` is unset.
 
 ## Rust toolchain
 

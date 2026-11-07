@@ -14,10 +14,10 @@
  *      payment hash). Requires its own review (brief: contracts/ only if
  *      audited modules are insufficient).
  *   C. Session key constrained to `transfer(address,uint256)` on a token
- *      allowlist with amount <= cap but ANY recipient. Rejected: a
- *      compromised server could drain up to the cap to arbitrary addresses.
- * Until decided, `buildErc20TransferPermission` requires an explicit
- * recipient; it does not accept wildcards.
+ *      allowlist with amount <= cap but ANY recipient. **POC default:** a
+ *      compromised server can send up to `maxAmount` per UserOp to any
+ *      address (and can repeat; the cap is not cumulative). A later
+ *      signature-bound executor (option B) should replace this.
  */
 import { ParamCondition, toCallPolicy, toTimestampPolicy, CallPolicyVersion, type CallPolicyParams } from "@zerodev/permissions/policies";
 import { erc20Abi, isAddress, type Address } from "viem";
@@ -26,9 +26,12 @@ export type CallPermission = NonNullable<CallPolicyParams["permissions"]>[number
 
 export interface Erc20TransferPermissionInput {
   token: Address;
-  /** Exact recipient. Wildcards are intentionally not supported. */
-  recipient: Address;
-  /** Inclusive cap in token base units. */
+  /**
+   * Exact recipient. Omit for POC option C (any recipient). Do not omit in
+   * production: the session signer could then drain `maxAmount` per UserOp.
+   */
+  recipient?: Address;
+  /** Inclusive cap in token base units. Per call, not a remaining allowance. */
   maxAmount: bigint;
 }
 
@@ -36,20 +39,24 @@ export class PolicyInputError extends Error {}
 
 export function buildErc20TransferPermission(input: Erc20TransferPermissionInput): CallPermission {
   if (!isAddress(input.token)) throw new PolicyInputError("token must be an address");
-  if (!isAddress(input.recipient)) throw new PolicyInputError("recipient must be an address");
-  if (input.recipient.toLowerCase() === "0x0000000000000000000000000000000000000000") {
-    throw new PolicyInputError("recipient must not be the zero address");
-  }
   if (input.maxAmount <= 0n) throw new PolicyInputError("maxAmount must be > 0");
+  const amountRule = { condition: ParamCondition.LESS_THAN_OR_EQUAL as const, value: input.maxAmount };
+  const recipient = input.recipient;
+  if (recipient !== undefined) {
+    if (!isAddress(recipient)) throw new PolicyInputError("recipient must be an address");
+    if (recipient.toLowerCase() === "0x0000000000000000000000000000000000000000") {
+      throw new PolicyInputError("recipient must not be the zero address");
+    }
+  }
   return {
     target: input.token,
     valueLimit: 0n,
     abi: erc20Abi,
     functionName: "transfer" as const,
-    args: [
-      { condition: ParamCondition.EQUAL as const, value: input.recipient },
-      { condition: ParamCondition.LESS_THAN_OR_EQUAL as const, value: input.maxAmount },
-    ],
+    args:
+      recipient === undefined
+        ? [null, amountRule]
+        : [{ condition: ParamCondition.EQUAL as const, value: recipient }, amountRule],
   };
 }
 
