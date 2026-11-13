@@ -218,6 +218,11 @@ describe("NearService.verifyRaw / status / depositSubmitted / assets", () => {
     const s = await svc.status(q.depositAddress!);
     expect(s).toMatchObject({ status: "SUCCESS", originTxHashes: ["0xaaa"], destinationTxHashes: ["0xbbb"], amountOut: "1000000" });
 
+    // Live 1Click omits quoteWaitingTimeMs from the status echo.
+    delete embedded.quoteRequest.quoteWaitingTimeMs;
+    const dropped = await svc.status(q.depositAddress!);
+    expect(dropped.status).toBe("SUCCESS");
+
     embedded.quote.depositAddress = "0x9999999999999999999999999999999999999999";
     await expectCode(svc.status(q.depositAddress!), "SIGNATURE_INVALID");
     await expectCode(svc.status(""), "INVALID_REQUEST");

@@ -16,11 +16,17 @@ pcc-storage = { path = "../storage" }
 chrono.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+hex.workspace = true
+subtle.workspace = true
+reqwest.workspace = true
 
 [dev-dependencies]
 pcc-payments = { path = "../payments", features = ["mock"] }
 tokio.workspace = true
 alloy-primitives.workspace = true
+wiremock.workspace = true
 
 [lints]
 workspace = true

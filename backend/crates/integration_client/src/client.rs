@@ -2,14 +2,20 @@
 //! `pcc_payments::traits::OneClickAdapter` over the v1 internal contract.
 
 use crate::contract::{
-    AckResponse, AssetsResponse, DepositSubmittedDto, ErrorCode, ErrorResponse, HealthResponse, QuoteRequestDto,
-    SwapStatusDto, VerifiedQuoteDto, VerifyRequestDto, BASE_PATH,
+    AckResponse, AllowanceDto, AllowanceKeyDto, AssetsResponse, DepositPlanDto, DepositSubmittedDto, ErrorCode,
+    ErrorResponse, ExecuteResponseDto, GrantEnableDto, GrantPrepareDto, GrantPreparedDto, HealthResponse,
+    QuoteRequestDto, ReceiptDto, RevokedDto, SimulationDto, SwapStatusDto, VerifiedQuoteDto, VerifyRequestDto,
+    BASE_PATH,
 };
+use alloy_primitives::{Address, B256};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use pcc_payments::asset::AssetId;
+use pcc_payments::asset::{AssetId, ChainId, TokenRef};
 use pcc_payments::quote::VerifiedQuote;
-use pcc_payments::traits::{AdapterError, OneClickAdapter, QuoteSpec, SupportedAsset, SwapStatus};
+use pcc_payments::traits::{
+    AdapterError, Allowance, AllowanceKey, DepositPlan, GrantRequest, OneClickAdapter, PreparedGrant, QuoteSpec,
+    Receipt, SessionGrantPort, Simulation, SourceExecutor, SupportedAsset, SwapStatus,
+};
 use reqwest::{Method, StatusCode};
 use serde::de::DeserializeOwned;
 use std::time::Duration;
@@ -74,13 +80,13 @@ impl IntegrationClient {
         format!("{}{}{}", self.cfg.base_url.trim_end_matches('/'), BASE_PATH, path)
     }
 
-    async fn call<T: DeserializeOwned>(
+    async fn dispatch(
         &self,
         method: Method,
         path: &str,
         query: &[(&str, &str)],
         body: Option<&impl serde::Serialize>,
-    ) -> Result<T, AdapterError> {
+    ) -> Result<(StatusCode, String), AdapterError> {
         let request_id = uuid::Uuid::new_v4().to_string();
         let mut req = self
             .http
@@ -103,16 +109,16 @@ impl IntegrationClient {
                 AdapterError::Unavailable(e.to_string())
             }
         })?;
-
         let status = resp.status();
         let text = resp.text().await.map_err(|e| AdapterError::Malformed(e.to_string()))?;
+        Ok((status, text))
+    }
 
+    fn decode_body<T: DeserializeOwned>(path: &str, status: StatusCode, text: &str) -> Result<T, AdapterError> {
         if status.is_success() {
-            return serde_json::from_str::<T>(&text).map_err(|e| AdapterError::Schema(format!("{path}: {e}")));
+            return serde_json::from_str::<T>(text).map_err(|e| AdapterError::Schema(format!("{path}: {e}")));
         }
-
-        // Prefer the structured error body; fall back to status mapping.
-        if let Ok(err) = serde_json::from_str::<ErrorResponse>(&text) {
+        if let Ok(err) = serde_json::from_str::<ErrorResponse>(text) {
             return Err(map_error_code(err.error.code, &err.error.message));
         }
         Err(match status {
@@ -124,8 +130,112 @@ impl IntegrationClient {
         })
     }
 
+    async fn call<T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: &str,
+        query: &[(&str, &str)],
+        body: Option<&impl serde::Serialize>,
+    ) -> Result<T, AdapterError> {
+        let (status, text) = self.dispatch(method, path, query, body).await?;
+        Self::decode_body(path, status, &text)
+    }
+
     pub async fn health(&self) -> Result<HealthResponse, AdapterError> {
         self.call(Method::GET, "/health", &[], None::<&()>).await
+    }
+
+    async fn call_allow_404<T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: &str,
+        query: &[(&str, &str)],
+        body: Option<&impl serde::Serialize>,
+    ) -> Result<Option<T>, AdapterError> {
+        let (status, text) = self.dispatch(method, path, query, body).await?;
+        if status == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        Self::decode_body(path, status, &text).map(Some)
+    }
+}
+
+fn deposit_plan_dto(plan: &DepositPlan) -> Result<DepositPlanDto, AdapterError> {
+    let token = match plan.asset.token {
+        TokenRef::Erc20 { address } => format!("{address}"),
+        TokenRef::Native => {
+            return Err(AdapterError::Rejected(
+                "session-key executor refuses native-value deposits; ERC-20 only".into(),
+            ));
+        }
+    };
+    let to = format!("{}", plan.to);
+    Ok(DepositPlanDto {
+        attempt_id: plan.attempt_id.to_string(),
+        chain_id: plan.chain_id.0,
+        token,
+        from: format!("{}", plan.from),
+        to: to.clone(),
+        quote_deposit_address: to,
+        amount: plan.amount,
+        max_fee_wei: plan.max_fee_wei,
+        approval_ref: plan.approval_ref.clone(),
+        gas_limit: None,
+        mandate_id: plan.mandate.map(|m| m.to_string()),
+    })
+}
+
+fn parse_b256(s: &str, field: &str) -> Result<B256, AdapterError> {
+    s.parse::<B256>()
+        .map_err(|_| AdapterError::Schema(format!("{field}: not a 32-byte hash")))
+}
+
+#[async_trait]
+impl SourceExecutor for IntegrationClient {
+    async fn simulate(&self, plan: &DepositPlan) -> Result<Simulation, AdapterError> {
+        let dto: SimulationDto = self
+            .call(Method::POST, "/aa/simulate", &[], Some(&deposit_plan_dto(plan)?))
+            .await?;
+        Ok(Simulation {
+            ok: dto.ok,
+            gas_estimate: dto.gas_estimate,
+            max_fee_wei: dto.max_fee_wei,
+            sender_balance: dto.sender_balance,
+            notes: dto.notes,
+        })
+    }
+
+    async fn execute_deposit(&self, plan: &DepositPlan) -> Result<B256, AdapterError> {
+        let dto: ExecuteResponseDto = self
+            .call(Method::POST, "/aa/execute", &[], Some(&deposit_plan_dto(plan)?))
+            .await?;
+        parse_b256(&dto.tx_hash, "txHash")
+    }
+
+    async fn receipt(
+        &self,
+        chain_id: pcc_payments::asset::ChainId,
+        tx_hash: B256,
+    ) -> Result<Option<Receipt>, AdapterError> {
+        let chain = chain_id.0.to_string();
+        let hash = format!("{tx_hash:#x}");
+        let dto: Option<ReceiptDto> = self
+            .call_allow_404(
+                Method::GET,
+                "/aa/receipt",
+                &[("chainId", chain.as_str()), ("txHash", hash.as_str())],
+                None::<&()>,
+            )
+            .await?;
+        dto.map(|d| {
+            Ok(Receipt {
+                tx_hash: parse_b256(&d.tx_hash, "txHash")?,
+                block_number: d.block_number,
+                success: d.success,
+                gas_used: d.gas_used,
+            })
+        })
+        .transpose()
     }
 }
 
@@ -140,8 +250,91 @@ fn map_error_code(code: ErrorCode, message: &str) -> AdapterError {
         ErrorCode::UpstreamUnavailable => AdapterError::Unavailable(message.to_owned()),
         ErrorCode::MalformedUpstream | ErrorCode::SignatureInvalid => AdapterError::Malformed(message.to_owned()),
         ErrorCode::NoRoute => AdapterError::NoRoute(message.to_owned()),
+        ErrorCode::SessionRejected => AdapterError::Rejected(format!("session rejected: {message}")),
         ErrorCode::Internal => AdapterError::Other(format!("worker internal error: {message}")),
     }
+}
+
+fn parse_address(s: &str, field: &str) -> Result<Address, AdapterError> {
+    s.parse()
+        .map_err(|_| AdapterError::Malformed(format!("{field} is not an EVM address")))
+}
+
+#[async_trait]
+impl SessionGrantPort for IntegrationClient {
+    async fn prepare_grant(&self, req: &GrantRequest) -> Result<PreparedGrant, AdapterError> {
+        let body = GrantPrepareDto {
+            owner: req.key.owner.to_string(),
+            chain_id: req.key.chain_id.0,
+            token: req.key.token.to_string(),
+            max_amount: req.max_amount,
+            uses: req.uses,
+            validity_sec: req.validity_secs,
+            mandate_id: req.key.mandate.map(|m| m.to_string()),
+        };
+        let dto: GrantPreparedDto = self.call(Method::POST, "/aa/grants/prepare", &[], Some(&body)).await?;
+        Ok(PreparedGrant {
+            grant_id: dto.grant_id,
+            typed_data: dto.typed_data,
+            session_signer: parse_address(&dto.session_signer, "sessionSigner")?,
+            uses: dto.uses,
+            valid_until: dto.valid_until,
+            expires_at: parse_ts(&dto.expires_at, "expiresAt")?,
+        })
+    }
+
+    async fn enable_grant(&self, grant_id: &str, signature: &str) -> Result<Allowance, AdapterError> {
+        let body = GrantEnableDto {
+            grant_id: grant_id.to_owned(),
+            signature: signature.to_owned(),
+        };
+        let dto: AllowanceDto = self.call(Method::POST, "/aa/grants/enable", &[], Some(&body)).await?;
+        allowance_from(&dto)
+    }
+
+    async fn allowance(&self, key: &AllowanceKey) -> Result<Option<Allowance>, AdapterError> {
+        let dto: Option<AllowanceDto> = self
+            .call_allow_404(Method::POST, "/aa/grants/status", &[], Some(&key_dto(key)))
+            .await?;
+        dto.as_ref().map(allowance_from).transpose()
+    }
+
+    async fn revoke_allowance(&self, key: &AllowanceKey) -> Result<bool, AdapterError> {
+        let dto: RevokedDto = self
+            .call(Method::POST, "/aa/grants/revoke", &[], Some(&key_dto(key)))
+            .await?;
+        Ok(dto.revoked)
+    }
+}
+
+fn key_dto(key: &AllowanceKey) -> AllowanceKeyDto {
+    AllowanceKeyDto {
+        owner: key.owner.to_string(),
+        chain_id: key.chain_id.0,
+        token: key.token.to_string(),
+        mandate_id: key.mandate.map(|m| m.to_string()),
+    }
+}
+
+fn allowance_from(dto: &AllowanceDto) -> Result<Allowance, AdapterError> {
+    Ok(Allowance {
+        key: AllowanceKey {
+            owner: parse_address(&dto.owner, "owner")?,
+            chain_id: ChainId(dto.chain_id),
+            token: parse_address(&dto.token, "token")?,
+            mandate: dto
+                .mandate_id
+                .as_deref()
+                .map(|m| {
+                    m.parse()
+                        .map_err(|_| AdapterError::Schema("mandateId: not a uuid".into()))
+                })
+                .transpose()?,
+        },
+        max_amount: dto.max_amount,
+        uses_remaining: dto.uses_remaining,
+        valid_until: dto.valid_until,
+    })
 }
 
 fn parse_ts(s: &str, field: &str) -> Result<DateTime<Utc>, AdapterError> {
@@ -266,7 +459,7 @@ impl OneClickAdapter for IntegrationClient {
 mod tests {
     use super::*;
     use pcc_payments::amount::BaseUnits;
-    use pcc_payments::asset::{ChainId, TokenRef};
+    use pcc_payments::domain::PaymentAttemptId;
     use pcc_payments::quote::Confidentiality;
     use pcc_payments::status::OneClickStatus;
     use serde_json::json;
@@ -475,6 +668,7 @@ mod tests {
             (401, "UNAUTHORIZED", "unauthorized"),
             (409, "AUTH_REF_REUSED", "rejected"),
             (422, "NO_ROUTE", "no_route"),
+            (422, "SESSION_REJECTED", "rejected"),
             (422, "SIGNATURE_INVALID", "malformed"),
             (502, "UPSTREAM_UNAVAILABLE", "unavailable"),
             (504, "UPSTREAM_TIMEOUT", "timeout"),
@@ -537,6 +731,86 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn allowance_prepare_enable_status_revoke_round_trip() {
+        let server = MockServer::start().await;
+        let owner = "0x049FdEf2550772B9F36F86757C27f5F982D0970D";
+        let token = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+        let mandate = "33333333-3333-3333-3333-333333333333";
+        let key_json = json!({"owner": owner, "chainId": 8453, "token": token, "mandateId": mandate});
+        let allowance_json = json!({
+            "owner": owner, "chainId": 8453, "token": token, "mandateId": mandate,
+            "maxAmount": "211568", "usesRemaining": 5, "validUntil": 1_800_000_000u64
+        });
+        Mock::given(method("POST"))
+            .and(path("/internal/v1/aa/grants/prepare"))
+            .and(body_partial_json(json!({
+                "owner": owner, "chainId": 8453, "maxAmount": "211568", "uses": 5, "validitySec": 604_800,
+                "mandateId": mandate
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "grantId": "g-1",
+                "typedData": {"primaryType": "Enable", "message": {"nonce": "3"}},
+                "sessionSigner": "0x06e6d59dd649550767405A2E3B1CC13fABE550E7",
+                "uses": 5,
+                "validUntil": 1_800_000_000u64,
+                "expiresAt": "2026-11-08T00:10:00Z"
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/internal/v1/aa/grants/enable"))
+            .and(body_partial_json(json!({"grantId": "g-1", "signature": "0xsig"})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(allowance_json.clone()))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/internal/v1/aa/grants/status"))
+            .and(body_partial_json(key_json.clone()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(allowance_json))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/internal/v1/aa/grants/status"))
+            .respond_with(ResponseTemplate::new(404).set_body_json(json!({
+                "error": {"code": "INVALID_REQUEST", "message": "no active allowance", "retryable": false}
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/internal/v1/aa/grants/revoke"))
+            .and(body_partial_json(key_json))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"revoked": true})))
+            .mount(&server)
+            .await;
+
+        let c = client(&server, 2_000);
+        let key = AllowanceKey {
+            owner: owner.parse().unwrap(),
+            chain_id: ChainId::BASE,
+            token: token.parse().unwrap(),
+            mandate: Some(mandate.parse().unwrap()),
+        };
+        let prepared = c
+            .prepare_grant(&GrantRequest {
+                key,
+                max_amount: BaseUnits::from_u128(211_568),
+                uses: 5,
+                validity_secs: 604_800,
+            })
+            .await
+            .unwrap();
+        assert_eq!(prepared.grant_id, "g-1");
+        assert_eq!(prepared.uses, 5);
+        let enabled = c.enable_grant("g-1", "0xsig").await.unwrap();
+        assert_eq!(enabled.key, key);
+        assert_eq!(enabled.uses_remaining, 5);
+        assert_eq!(c.allowance(&key).await.unwrap(), Some(enabled));
+        assert_eq!(c.allowance(&key).await.unwrap(), None, "404 means nothing active");
+        assert!(c.revoke_allowance(&key).await.unwrap());
+    }
+
+    #[tokio::test]
     async fn assets_filters_to_mapped_evm_chains() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
@@ -595,5 +869,115 @@ mod tests {
             .await;
         let err = client(&server, 2000).status("0xdead", None).await.unwrap_err();
         assert!(matches!(err, AdapterError::Schema(_)), "{err:?}");
+    }
+
+    fn erc20_plan() -> DepositPlan {
+        DepositPlan {
+            attempt_id: PaymentAttemptId(uuid::Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap()),
+            chain_id: ChainId::SEPOLIA,
+            asset: AssetId {
+                chain_id: ChainId::SEPOLIA,
+                token: TokenRef::Erc20 {
+                    address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913".parse().unwrap(),
+                },
+                decimals: 6,
+                one_click_asset_id: "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near".into(),
+            },
+            from: "0x049FdEf2550772B9F36F86757C27f5F982D0970D".parse().unwrap(),
+            to: "0x76b4c56085ED136a8744D52bE956396624a730E8".parse().unwrap(),
+            amount: BaseUnits::from_u128(1_020_000),
+            max_fee_wei: BaseUnits::from_u128(10u128.pow(16)),
+            approval_ref: "appr-aa-1".into(),
+            mandate: None,
+        }
+    }
+
+    const USER_OP: &str = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    #[tokio::test]
+    async fn session_simulate_and_execute_round_trip() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/internal/v1/aa/simulate"))
+            .and(body_partial_json(json!({
+                "quoteDepositAddress": "0x76b4c56085ED136a8744D52bE956396624a730E8",
+                "amount": "1020000",
+                "to": "0x76b4c56085ED136a8744D52bE956396624a730E8"
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "ok": true,
+                "gasEstimate": 120_000,
+                "maxFeeWei": "10000000000000000",
+                "senderBalance": "0",
+                "notes": ["ok"]
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/internal/v1/aa/execute"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "userOpHash": USER_OP,
+                "txHash": USER_OP
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/internal/v1/aa/receipt"))
+            .and(query_param("txHash", USER_OP))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "txHash": USER_OP,
+                "blockNumber": 1,
+                "success": true,
+                "gasUsed": 120_000
+            })))
+            .mount(&server)
+            .await;
+
+        let c = client(&server, 2000);
+        let plan = erc20_plan();
+        let sim = c.simulate(&plan).await.unwrap();
+        assert!(sim.ok);
+        assert_eq!(sim.gas_estimate, 120_000);
+        let hash = c.execute_deposit(&plan).await.unwrap();
+        assert_eq!(format!("{hash:#x}"), USER_OP);
+        let rec = c.receipt(ChainId::SEPOLIA, hash).await.unwrap().unwrap();
+        assert!(rec.success);
+    }
+
+    #[tokio::test]
+    async fn session_execute_maps_policy_reject() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/internal/v1/aa/execute"))
+            .respond_with(ResponseTemplate::new(422).set_body_json(json!({
+                "error": { "code": "SESSION_REJECTED", "message": "quote_address_mismatch" }
+            })))
+            .mount(&server)
+            .await;
+        let err = client(&server, 2000).execute_deposit(&erc20_plan()).await.unwrap_err();
+        assert!(matches!(err, AdapterError::Rejected(_)), "{err:?}");
+    }
+
+    #[tokio::test]
+    async fn session_receipt_404_is_none() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/internal/v1/aa/receipt"))
+            .respond_with(ResponseTemplate::new(404).set_body_json(json!({
+                "error": { "code": "INVALID_REQUEST", "message": "receipt not found" }
+            })))
+            .mount(&server)
+            .await;
+        let hash = USER_OP.parse().unwrap();
+        let rec = client(&server, 2000).receipt(ChainId::SEPOLIA, hash).await.unwrap();
+        assert!(rec.is_none());
+    }
+
+    #[test]
+    fn session_dto_refuses_native() {
+        let mut plan = erc20_plan();
+        plan.asset.token = TokenRef::Native;
+        let err = deposit_plan_dto(&plan).unwrap_err();
+        assert!(matches!(err, AdapterError::Rejected(_)), "{err:?}");
     }
 }

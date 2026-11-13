@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Private Crypto Checkout — public API",
-    "description": "Merchant and checkout API. M0/M1: meta endpoints only; payment-intent endpoints land in M6.",
+    "description": "Merchant and hosted-checkout API. Amounts are decimal integer strings.",
     "license": {
       "name": "UNLICENSED",
       "identifier": "UNLICENSED"
@@ -30,6 +30,1284 @@
         }
       }
     },
+    "/v1/api-keys/rotate": {
+      "post": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "rotate_api_key",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/autopay": {
+      "get": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "list_for_merchant",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MandateView"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/autopay/{mandate_id}/charges": {
+      "post": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "charge",
+        "parameters": [
+          {
+            "name": "mandate_id",
+            "in": "path",
+            "description": "Mandate id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Replays return the first result",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChargeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChargeView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}": {
+      "get": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "get_checkout",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/authorize": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "authorize",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/autopay": {
+      "get": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "list_for_payer",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MandateView"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "setup",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MandateSetupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MandateSetupView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/autopay/{mandate_id}/enable": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "enable",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mandate_id",
+            "in": "path",
+            "description": "Mandate id from setup",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MandateEnableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MandateView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/autopay/{mandate_id}/revoke": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "revoke",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mandate_id",
+            "in": "path",
+            "description": "Mandate id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MandateView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/delegation": {
+      "get": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "delegation_status",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DelegationStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/device/resume": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "resume",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiweVerifyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/session-grant": {
+      "get": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "allowance_status",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllowanceView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "no active allowance for this wallet and source asset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "prepare_grant",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareGrantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionGrantView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/session-grant/enable": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "enable_grant",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnableGrantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllowanceView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/session-grant/revoke": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "revoke_allowance",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Public checkout session id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/siwe/challenge": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "siwe_challenge",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiweStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiweStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/siwe/verify": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "siwe_verify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiweVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiweVerifyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/source-asset": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "select_source_asset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectSourceAssetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectSourceAssetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/source-assets": {
+      "get": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "list_source_assets",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceAssetsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/totp/confirm": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "totp_confirm",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/totp/enroll": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "totp_enroll",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/{session_id}/totp/reset": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "totp_reset",
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/devices/forget": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "operationId": "forget",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForgetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/merchants": {
+      "post": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "signup",
+        "parameters": [
+          {
+            "name": "X-Signup-Token",
+            "in": "header",
+            "description": "Operator-issued invite token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/meta/gates": {
       "get": {
         "tags": [
@@ -49,13 +1327,764 @@
           }
         }
       }
+    },
+    "/v1/payment-intents": {
+      "get": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "list_intents",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentIntentView"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "create_intent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIntentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntentView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payment-intents/{id}": {
+      "get": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "get_intent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Payment intent id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntentView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payment-intents/{id}/events": {
+      "get": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "list_events",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Payment intent id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SignedEventView"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payout-config": {
+      "get": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "get_payout",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "put_payout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhook-secret/rotate": {
+      "post": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "rotate_webhook_secret",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookSecretResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhook-url": {
+      "put": {
+        "tags": [
+          "merchant"
+        ],
+        "operationId": "put_webhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookUrlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AllowanceView": {
+        "type": "object",
+        "required": [
+          "chain_id",
+          "token",
+          "max_amount",
+          "uses_remaining",
+          "valid_until",
+          "covers_this_payment"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "covers_this_payment": {
+            "type": "boolean",
+            "description": "Whether it can pay this checkout as currently priced."
+          },
+          "max_amount": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "uses_remaining": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "valid_until": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ApiKeyResponse": {
+        "type": "object",
+        "required": [
+          "api_key"
+        ],
+        "properties": {
+          "api_key": {
+            "type": "string",
+            "description": "Shown once; the previous key no longer authenticates."
+          }
+        }
+      },
+      "AuthorizeRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "remember_device": {
+            "type": "boolean",
+            "description": "Issue a device token so later checkouts on this browser skip the wallet sign-in."
+          }
+        }
+      },
+      "AuthorizeResponse": {
+        "type": "object",
+        "required": [
+          "authorization_id",
+          "attempt_id",
+          "status",
+          "quoted_input",
+          "execution"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "authorization_id": {
+            "type": "string"
+          },
+          "deposit_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "device_token": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Present only when `remember_device` was set. Shown once; store it on this device only."
+          },
+          "execution": {
+            "type": "string"
+          },
+          "quoted_input": {
+            "type": "string"
+          },
+          "simulation_ok": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ChainDelegationView": {
+        "type": "object",
+        "required": [
+          "chain_id",
+          "state",
+          "ready",
+          "detail"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "detail": {
+            "type": "string"
+          },
+          "ready": {
+            "type": "boolean",
+            "description": "True only for a Kernel v3.3 delegation: session grants work as-is."
+          },
+          "state": {
+            "type": "string",
+            "description": "`none`, `delegated` or `contract`."
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ChargeRequest": {
+        "type": "object",
+        "required": [
+          "merchant_order_id",
+          "output_amount"
+        ],
+        "properties": {
+          "merchant_order_id": {
+            "type": "string"
+          },
+          "output_amount": {
+            "type": "string",
+            "description": "Payout-asset base units the merchant receives."
+          }
+        }
+      },
+      "ChargeView": {
+        "type": "object",
+        "required": [
+          "mandate_id",
+          "intent_id",
+          "attempt_id",
+          "quoted_input",
+          "execution",
+          "charges_remaining"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "charges_remaining": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "deposit_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "execution": {
+            "type": "string",
+            "description": "Same values as checkout authorize: `gated`, `awaiting_approval`, `broadcast`, ..."
+          },
+          "intent_id": {
+            "type": "string"
+          },
+          "mandate_id": {
+            "type": "string"
+          },
+          "quoted_input": {
+            "type": "string"
+          },
+          "simulation_ok": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "CheckoutView": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "merchant_name",
+          "merchant_order_id",
+          "output_amount",
+          "destination_asset",
+          "source_asset",
+          "receiving_address",
+          "expires_at",
+          "status",
+          "intent_id"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attempt_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deposit_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "destination_asset": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "intent_id": {
+            "type": "string"
+          },
+          "max_debit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "merchant_name": {
+            "type": "string"
+          },
+          "merchant_order_id": {
+            "type": "string"
+          },
+          "output_amount": {
+            "type": "string"
+          },
+          "quoted_input": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receiving_address": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "source_asset": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "success_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Where to send the payer's browser when they finish. Null when the merchant omitted it."
+          }
+        }
+      },
+      "CreateIntentRequest": {
+        "type": "object",
+        "required": [
+          "merchant_order_id",
+          "output_amount"
+        ],
+        "properties": {
+          "merchant_order_id": {
+            "type": "string"
+          },
+          "output_amount": {
+            "type": "string",
+            "description": "Decimal integer string of base units (never a float)."
+          },
+          "success_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DelegationStatusResponse": {
+        "type": "object",
+        "required": [
+          "address",
+          "kernel_implementation",
+          "chains"
+        ],
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "chains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChainDelegationView"
+            }
+          },
+          "kernel_implementation": {
+            "type": "string"
+          }
+        }
+      },
+      "DeviceTokenRequest": {
+        "type": "object",
+        "required": [
+          "device_token"
+        ],
+        "properties": {
+          "device_token": {
+            "type": "string"
+          }
+        }
+      },
+      "EnableGrantRequest": {
+        "type": "object",
+        "required": [
+          "grant_id",
+          "signature"
+        ],
+        "properties": {
+          "grant_id": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        }
+      },
+      "EnrollResponse": {
+        "type": "object",
+        "required": [
+          "wallet_credential_id",
+          "otpauth_uri",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string"
+          },
+          "otpauth_uri": {
+            "type": "string"
+          },
+          "wallet_credential_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorBody": {
+        "type": "object",
+        "required": [
+          "error",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "ForgetResponse": {
+        "type": "object",
+        "required": [
+          "forgotten"
+        ],
+        "properties": {
+          "forgotten": {
+            "type": "boolean",
+            "description": "False when the token was unknown or already expired."
+          }
+        }
+      },
       "GatesView": {
         "type": "object",
-        "description": "Execution-gate status. Read-only; gates can only be changed via environment.",
         "required": [
           "dry_run",
           "enable_mainnet_transfers",
@@ -75,7 +2104,6 @@
       },
       "Health": {
         "type": "object",
-        "description": "Liveness response.",
         "required": [
           "ok",
           "service",
@@ -92,6 +2120,685 @@
             "type": "string"
           }
         }
+      },
+      "MandateEnableRequest": {
+        "type": "object",
+        "required": [
+          "grant_id",
+          "signature"
+        ],
+        "properties": {
+          "grant_id": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        }
+      },
+      "MandateSetupRequest": {
+        "type": "object",
+        "description": "Optional fields default to this checkout's max debit, 12 charges, 24 h apart, 30 days.",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "charges": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Total charges allowed (1..=20).",
+            "minimum": 0
+          },
+          "code": {
+            "type": "string",
+            "description": "TOTP code; setting up autopay is the payer-present step."
+          },
+          "interval_hours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Minimum hours between charges (0..=744).",
+            "minimum": 0
+          },
+          "max_amount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Per-charge cap in source-token base units."
+          },
+          "valid_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Days until the mandate expires (1..=30).",
+            "minimum": 0
+          }
+        }
+      },
+      "MandateSetupView": {
+        "type": "object",
+        "required": [
+          "mandate_id",
+          "grant_id",
+          "typed_data",
+          "chain_id",
+          "token",
+          "max_amount",
+          "charges",
+          "interval_secs",
+          "total_exposure",
+          "valid_until",
+          "expires_at"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "charges": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "The payer must sign before this."
+          },
+          "grant_id": {
+            "type": "string"
+          },
+          "interval_secs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "mandate_id": {
+            "type": "string"
+          },
+          "max_amount": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "total_exposure": {
+            "type": "string",
+            "description": "Worst case: `max_amount * charges`."
+          },
+          "typed_data": {
+            "type": "object",
+            "description": "Pass unchanged to `eth_signTypedData_v4`."
+          },
+          "valid_until": {
+            "type": "string"
+          }
+        }
+      },
+      "MandateView": {
+        "type": "object",
+        "required": [
+          "mandate_id",
+          "merchant_id",
+          "owner",
+          "chain_id",
+          "token",
+          "source_asset",
+          "max_amount",
+          "charges",
+          "charges_remaining",
+          "interval_secs",
+          "valid_until",
+          "status"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "charges": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "charges_remaining": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "interval_secs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "last_charge_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mandate_id": {
+            "type": "string"
+          },
+          "max_amount": {
+            "type": "string"
+          },
+          "merchant_id": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "source_asset": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "`awaiting_signature`, `active`, `expired`, `exhausted` or `revoked`."
+          },
+          "token": {
+            "type": "string"
+          },
+          "valid_until": {
+            "type": "string"
+          }
+        }
+      },
+      "MerchantView": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "webhook_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PaymentIntentView": {
+        "type": "object",
+        "required": [
+          "id",
+          "merchant_id",
+          "merchant_order_id",
+          "status",
+          "output_amount",
+          "expires_at",
+          "checkout_session_id",
+          "checkout_url"
+        ],
+        "properties": {
+          "checkout_session_id": {
+            "type": "string"
+          },
+          "checkout_url": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "merchant_id": {
+            "type": "string"
+          },
+          "merchant_order_id": {
+            "type": "string"
+          },
+          "output_amount": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "PayoutRequest": {
+        "type": "object",
+        "required": [
+          "receiving_address",
+          "chain_id",
+          "decimals",
+          "one_click_asset_id"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "decimals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "one_click_asset_id": {
+            "type": "string"
+          },
+          "receiving_address": {
+            "type": "string"
+          },
+          "token_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PayoutView": {
+        "type": "object",
+        "required": [
+          "receiving_address",
+          "chain_id",
+          "decimals",
+          "one_click_asset_id"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "decimals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "one_click_asset_id": {
+            "type": "string"
+          },
+          "receiving_address": {
+            "type": "string"
+          },
+          "token_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PrepareGrantRequest": {
+        "type": "object",
+        "description": "Every field is optional; defaults are this payment's max debit, 5 uses, 7 days.",
+        "properties": {
+          "max_amount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Per-payment cap in token base units. May not be below this payment's max debit."
+          },
+          "uses": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Payments the allowance covers (1..=20).",
+            "minimum": 0
+          },
+          "valid_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Days until it expires (1..=30).",
+            "minimum": 0
+          }
+        }
+      },
+      "RevokeResponse": {
+        "type": "object",
+        "required": [
+          "revoked"
+        ],
+        "properties": {
+          "revoked": {
+            "type": "boolean",
+            "description": "False when there was no active allowance."
+          }
+        }
+      },
+      "SelectSourceAssetRequest": {
+        "type": "object",
+        "required": [
+          "asset_id"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          }
+        }
+      },
+      "SelectSourceAssetResponse": {
+        "type": "object",
+        "required": [
+          "attempt_id",
+          "source_asset",
+          "quoted_input",
+          "max_debit"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "max_debit": {
+            "type": "string"
+          },
+          "quoted_input": {
+            "type": "string",
+            "description": "Empty when the preview quote failed; authorize then refuses."
+          },
+          "source_asset": {
+            "type": "string"
+          }
+        }
+      },
+      "SessionGrantView": {
+        "type": "object",
+        "required": [
+          "grant_id",
+          "typed_data",
+          "session_signer",
+          "chain_id",
+          "token",
+          "max_amount",
+          "uses",
+          "total_exposure",
+          "valid_until",
+          "expires_at"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "The payer must sign before this."
+          },
+          "grant_id": {
+            "type": "string"
+          },
+          "max_amount": {
+            "type": "string",
+            "description": "Per-payment cap in token base units."
+          },
+          "session_signer": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "total_exposure": {
+            "type": "string",
+            "description": "Worst case the allowance can move: `max_amount * uses`."
+          },
+          "typed_data": {
+            "type": "object",
+            "description": "Pass unchanged to `eth_signTypedData_v4`."
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "valid_until": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "SignedEventView": {
+        "type": "object",
+        "required": [
+          "type",
+          "payload",
+          "signature",
+          "status"
+        ],
+        "properties": {
+          "payload": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "SignupRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "payout"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "payout": {
+            "$ref": "#/components/schemas/PayoutRequest"
+          }
+        }
+      },
+      "SignupResponse": {
+        "type": "object",
+        "required": [
+          "merchant_id",
+          "name",
+          "api_key",
+          "webhook_secret"
+        ],
+        "properties": {
+          "api_key": {
+            "type": "string",
+            "description": "Shown once. Store it in your server's secret manager."
+          },
+          "merchant_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "webhook_secret": {
+            "type": "string",
+            "description": "Shown once. Verifies `X-PCC-Signature` on webhooks."
+          }
+        }
+      },
+      "SiweStartRequest": {
+        "type": "object",
+        "required": [
+          "address"
+        ],
+        "properties": {
+          "address": {
+            "type": "string"
+          }
+        }
+      },
+      "SiweStartResponse": {
+        "type": "object",
+        "required": [
+          "nonce",
+          "message",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "string"
+          }
+        }
+      },
+      "SiweVerifyRequest": {
+        "type": "object",
+        "required": [
+          "message",
+          "signature"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        }
+      },
+      "SiweVerifyResponse": {
+        "type": "object",
+        "required": [
+          "address",
+          "wallet_credential_id",
+          "totp_enrolled",
+          "attempt_id",
+          "quoted_input",
+          "max_debit"
+        ],
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Signed-in payer wallet."
+          },
+          "attempt_id": {
+            "type": "string"
+          },
+          "max_debit": {
+            "type": "string"
+          },
+          "quoted_input": {
+            "type": "string"
+          },
+          "totp_enrolled": {
+            "type": "boolean",
+            "description": "The wallet already confirmed TOTP in an earlier checkout; skip enrollment."
+          },
+          "wallet_credential_id": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceAssetView": {
+        "type": "object",
+        "required": [
+          "asset_id",
+          "symbol",
+          "chain_id",
+          "decimals",
+          "token_address"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "chain_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "decimals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "token_address": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceAssetsResponse": {
+        "type": "object",
+        "required": [
+          "assets"
+        ],
+        "properties": {
+          "assets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceAssetView"
+            }
+          },
+          "selected": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TotpCodeRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "WebhookSecretResponse": {
+        "type": "object",
+        "required": [
+          "webhook_secret"
+        ],
+        "properties": {
+          "webhook_secret": {
+            "type": "string",
+            "description": "Shown once; deliveries signed after rotation use this secret."
+          }
+        }
+      },
+      "WebhookUrlRequest": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        }
       }
     }
   },
@@ -99,6 +2806,14 @@
     {
       "name": "meta",
       "description": "Liveness and execution gates"
+    },
+    {
+      "name": "merchant",
+      "description": "API-key authenticated merchant surface"
+    },
+    {
+      "name": "checkout",
+      "description": "Public hosted checkout; no merchant keys"
     }
   ]
 }

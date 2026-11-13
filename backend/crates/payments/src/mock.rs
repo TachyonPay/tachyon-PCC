@@ -6,8 +6,11 @@ use crate::domain::{AuthorizationId, PaymentAttemptId, WalletCredentialId};
 use crate::quote::{Confidentiality, DepositMode, SwapType, VerifiedQuote};
 use crate::status::OneClickStatus;
 use crate::traits::{
-    AdapterError, EnrollmentChallenge, OneClickAdapter, PaymentAuthorizer, QuoteSpec, SupportedAsset, SwapStatus,
+    AdapterError, Allowance, AllowanceKey, DepositPlan, EnrollmentChallenge, GrantRequest, OneClickAdapter,
+    PaymentAuthorizer, PreparedGrant, QuoteSpec, Receipt, SessionGrantPort, Simulation, SourceExecutor, SupportedAsset,
+    SwapStatus,
 };
+use alloy_primitives::B256;
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use std::collections::{HashMap, HashSet};
@@ -203,11 +206,16 @@ impl OneClickAdapter for MockOneClick {
             .get(deposit_address)
             .copied()
             .unwrap_or(OneClickStatus::PendingDeposit);
+        let destination_tx_hashes = if status == OneClickStatus::Success {
+            vec![format!("0x{:064x}", 0xDE57_u64)]
+        } else {
+            vec![]
+        };
         Ok(SwapStatus {
             status,
             updated_at: (self.now)(),
             origin_tx_hashes: vec![],
-            destination_tx_hashes: vec![],
+            destination_tx_hashes,
             amount_in: None,
             amount_out: None,
             refunded_amount: None,
@@ -216,6 +224,250 @@ impl OneClickAdapter for MockOneClick {
 
     async fn submit_deposit_tx(&self, _deposit_address: &str, _tx_hash: &str) -> Result<(), AdapterError> {
         Ok(())
+    }
+}
+
+/// In-memory [`SourceExecutor`] for M4 flow tests. Records the last plan so
+/// callers can assert the quote deposit address was bound; the same attempt
+/// id always returns the same hash.
+pub struct MockSourceExecutor {
+    pub behaviour: Mutex<MockBehaviour>,
+    executed: Mutex<HashMap<PaymentAttemptId, B256>>,
+    pub last_plan: Mutex<Option<DepositPlan>>,
+    receipts: Mutex<HashMap<B256, Receipt>>,
+}
+
+impl Default for MockSourceExecutor {
+    fn default() -> Self {
+        Self {
+            behaviour: Mutex::new(MockBehaviour::Ok),
+            executed: Mutex::new(HashMap::new()),
+            last_plan: Mutex::new(None),
+            receipts: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl MockSourceExecutor {
+    fn hash_for(plan: &DepositPlan) -> B256 {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(plan.attempt_id.to_string().as_bytes());
+        hasher.update(plan.to.as_slice());
+        hasher.update(plan.amount.to_string().as_bytes());
+        B256::from_slice(&hasher.finalize())
+    }
+}
+
+#[async_trait]
+impl SourceExecutor for MockSourceExecutor {
+    async fn simulate(&self, plan: &DepositPlan) -> Result<Simulation, AdapterError> {
+        match *self.behaviour.lock().unwrap() {
+            MockBehaviour::Timeout => return Err(AdapterError::Timeout),
+            MockBehaviour::Malformed => return Err(AdapterError::Malformed("mock".into())),
+            _ => {}
+        }
+        Ok(Simulation {
+            ok: true,
+            gas_estimate: 120_000,
+            max_fee_wei: plan.max_fee_wei,
+            sender_balance: plan.amount,
+            notes: vec!["mock simulate".into()],
+        })
+    }
+
+    async fn execute_deposit(&self, plan: &DepositPlan) -> Result<B256, AdapterError> {
+        if plan.approval_ref.trim().is_empty() {
+            return Err(AdapterError::Rejected("empty approval_ref".into()));
+        }
+        *self.last_plan.lock().unwrap() = Some(plan.clone());
+        let mut executed = self.executed.lock().unwrap();
+        if let Some(existing) = executed.get(&plan.attempt_id).copied() {
+            return Ok(existing);
+        }
+        let hash = Self::hash_for(plan);
+        executed.insert(plan.attempt_id, hash);
+        self.receipts.lock().unwrap().insert(
+            hash,
+            Receipt {
+                tx_hash: hash,
+                block_number: 1,
+                success: true,
+                gas_used: 120_000,
+            },
+        );
+        Ok(hash)
+    }
+
+    async fn receipt(&self, _chain_id: ChainId, tx_hash: B256) -> Result<Option<Receipt>, AdapterError> {
+        Ok(self.receipts.lock().unwrap().get(&tx_hash).cloned())
+    }
+}
+
+/// In-memory [`SessionGrantPort`] with the worker's semantics: one allowance
+/// per payer/chain/token, a use spent once per executed attempt. Accepts any
+/// 65-byte hex signature; real recovery is exercised in the worker's tests.
+#[derive(Default)]
+pub struct MockGrants {
+    prepared: Mutex<HashMap<String, GrantRequest>>,
+    active: Mutex<HashMap<AllowanceKey, Allowance>>,
+    spent: Mutex<HashSet<PaymentAttemptId>>,
+    /// Every allowance ever enabled, for assertions.
+    pub enabled: Mutex<Vec<Allowance>>,
+}
+
+impl MockGrants {
+    /// Mirror of the worker's `consume` on a successful execute.
+    pub fn spend(&self, plan: &DepositPlan) {
+        let TokenRef::Erc20 { address: token } = plan.asset.token else {
+            return;
+        };
+        if !self.spent.lock().unwrap().insert(plan.attempt_id) {
+            return;
+        }
+        let key = AllowanceKey {
+            owner: plan.from,
+            chain_id: plan.chain_id,
+            token,
+            mandate: plan.mandate,
+        };
+        let mut active = self.active.lock().unwrap();
+        if let Some(a) = active.get_mut(&key) {
+            a.uses_remaining = a.uses_remaining.saturating_sub(1);
+            if a.uses_remaining == 0 {
+                active.remove(&key);
+            }
+        }
+    }
+}
+
+fn unix_now() -> u64 {
+    u64::try_from(Utc::now().timestamp()).unwrap_or(0)
+}
+
+#[async_trait]
+impl SessionGrantPort for MockGrants {
+    async fn prepare_grant(&self, req: &GrantRequest) -> Result<PreparedGrant, AdapterError> {
+        if req.uses == 0 || req.uses > 20 || !(600..=30 * 24 * 3600).contains(&req.validity_secs) {
+            return Err(AdapterError::Rejected(
+                "invalid_allowance: uses or validity out of range".into(),
+            ));
+        }
+        let id = format!("grant-{}", self.prepared.lock().unwrap().len() + 1);
+        self.prepared.lock().unwrap().insert(id.clone(), req.clone());
+        Ok(PreparedGrant {
+            grant_id: id,
+            typed_data: serde_json::json!({
+                "primaryType": "Enable",
+                "domain": {"chainId": req.key.chain_id.0, "verifyingContract": req.key.owner.to_string()},
+                "message": {
+                    "token": req.key.token.to_string(),
+                    "maxAmount": req.max_amount.to_string(),
+                    "uses": req.uses,
+                },
+            }),
+            session_signer: alloy_primitives::Address::repeat_byte(0x5e),
+            uses: req.uses,
+            valid_until: unix_now() + req.validity_secs,
+            expires_at: Utc::now() + Duration::minutes(10),
+        })
+    }
+
+    async fn allowance(&self, key: &AllowanceKey) -> Result<Option<Allowance>, AdapterError> {
+        let mut active = self.active.lock().unwrap();
+        if active.get(key).is_some_and(|a| a.valid_until <= unix_now()) {
+            active.remove(key);
+        }
+        Ok(active.get(key).cloned())
+    }
+
+    async fn revoke_allowance(&self, key: &AllowanceKey) -> Result<bool, AdapterError> {
+        Ok(self.active.lock().unwrap().remove(key).is_some())
+    }
+
+    async fn enable_grant(&self, grant_id: &str, signature: &str) -> Result<Allowance, AdapterError> {
+        let hex_ok = signature
+            .strip_prefix("0x")
+            .is_some_and(|h| h.len() == 130 && h.bytes().all(|b| b.is_ascii_hexdigit()));
+        if !hex_ok {
+            return Err(AdapterError::Rejected("signature does not recover to owner".into()));
+        }
+        let req = self
+            .prepared
+            .lock()
+            .unwrap()
+            .remove(grant_id)
+            .ok_or_else(|| AdapterError::Rejected("unknown or used grant".into()))?;
+        let enabled = Allowance {
+            key: req.key,
+            max_amount: req.max_amount,
+            uses_remaining: req.uses,
+            valid_until: unix_now() + req.validity_secs,
+        };
+        self.active.lock().unwrap().insert(req.key, enabled.clone());
+        self.enabled.lock().unwrap().push(enabled.clone());
+        Ok(enabled)
+    }
+}
+
+/// Combined mock used by hosted-checkout API tests.
+#[derive(Default)]
+pub struct MockCheckout {
+    pub quotes: MockOneClick,
+    pub executor: MockSourceExecutor,
+    pub grants: MockGrants,
+}
+
+#[async_trait]
+impl SessionGrantPort for MockCheckout {
+    async fn prepare_grant(&self, req: &GrantRequest) -> Result<PreparedGrant, AdapterError> {
+        self.grants.prepare_grant(req).await
+    }
+    async fn enable_grant(&self, grant_id: &str, signature: &str) -> Result<Allowance, AdapterError> {
+        self.grants.enable_grant(grant_id, signature).await
+    }
+    async fn allowance(&self, key: &AllowanceKey) -> Result<Option<Allowance>, AdapterError> {
+        self.grants.allowance(key).await
+    }
+    async fn revoke_allowance(&self, key: &AllowanceKey) -> Result<bool, AdapterError> {
+        self.grants.revoke_allowance(key).await
+    }
+}
+
+#[async_trait]
+impl OneClickAdapter for MockCheckout {
+    async fn assets(&self) -> Result<Vec<SupportedAsset>, AdapterError> {
+        self.quotes.assets().await
+    }
+    async fn preview(&self, spec: &QuoteSpec) -> Result<VerifiedQuote, AdapterError> {
+        self.quotes.preview(spec).await
+    }
+    async fn executable_quote(&self, spec: &QuoteSpec) -> Result<VerifiedQuote, AdapterError> {
+        self.quotes.executable_quote(spec).await
+    }
+    async fn verify(&self, raw_response_json: &str) -> Result<VerifiedQuote, AdapterError> {
+        self.quotes.verify(raw_response_json).await
+    }
+    async fn status(&self, deposit_address: &str, deposit_memo: Option<&str>) -> Result<SwapStatus, AdapterError> {
+        self.quotes.status(deposit_address, deposit_memo).await
+    }
+    async fn submit_deposit_tx(&self, deposit_address: &str, tx_hash: &str) -> Result<(), AdapterError> {
+        self.quotes.submit_deposit_tx(deposit_address, tx_hash).await
+    }
+}
+
+#[async_trait]
+impl SourceExecutor for MockCheckout {
+    async fn simulate(&self, plan: &DepositPlan) -> Result<Simulation, AdapterError> {
+        self.executor.simulate(plan).await
+    }
+    async fn execute_deposit(&self, plan: &DepositPlan) -> Result<B256, AdapterError> {
+        let tx = self.executor.execute_deposit(plan).await?;
+        self.grants.spend(plan);
+        Ok(tx)
+    }
+    async fn receipt(&self, chain_id: ChainId, tx_hash: B256) -> Result<Option<Receipt>, AdapterError> {
+        self.executor.receipt(chain_id, tx_hash).await
     }
 }
 
@@ -381,5 +633,32 @@ mod tests {
         assert!(a.verify_for_attempt(w, attempt, "h", "000000").await.is_err());
         a.consume(id).await.unwrap();
         assert!(a.consume(id).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn mock_source_executor_is_idempotent_per_attempt() {
+        let exec = MockSourceExecutor::default();
+        let plan = DepositPlan {
+            attempt_id: PaymentAttemptId::new(),
+            chain_id: ChainId::SEPOLIA,
+            asset: AssetId {
+                chain_id: ChainId::SEPOLIA,
+                token: TokenRef::Erc20 {
+                    address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913".parse().unwrap(),
+                },
+                decimals: 6,
+                one_click_asset_id: "x".into(),
+            },
+            from: "0x049FdEf2550772B9F36F86757C27f5F982D0970D".parse().unwrap(),
+            to: "0x76b4c56085ED136a8744D52bE956396624a730E8".parse().unwrap(),
+            amount: BaseUnits::from_u128(1_020_000),
+            max_fee_wei: BaseUnits::from_u128(1),
+            approval_ref: "appr".into(),
+            mandate: None,
+        };
+        let a = exec.execute_deposit(&plan).await.unwrap();
+        let b = exec.execute_deposit(&plan).await.unwrap();
+        assert_eq!(a, b);
+        assert!(exec.receipt(ChainId::SEPOLIA, a).await.unwrap().unwrap().success);
     }
 }

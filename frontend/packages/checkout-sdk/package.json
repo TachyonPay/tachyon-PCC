@@ -2,7 +2,7 @@
   "name": "@pcc/checkout-sdk",
   "version": "0.1.0",
   "private": true,
-  "description": "Browser/Node client for the public API. M0/M1: typed meta endpoints only; payment-intent methods land in M6.",
+  "description": "Browser/Node client for the public API plus hosted-checkout popup. Merchant API keys must not be used in a payer browser.",
   "type": "module",
   "types": "./src/index.ts",
   "exports": {

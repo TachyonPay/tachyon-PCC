@@ -19,8 +19,10 @@ pub use flow::{
 };
 pub use keys::load_signer;
 pub use ledger::FileLedger;
-pub use plan::plan_from_quote;
+pub use plan::{assert_plan_matches_quote, plan_from_quote};
 pub use transfer::{build_deposit_call, decode_erc20_transfer, encode_erc20_transfer, CallError, DepositCall};
 
 #[cfg(test)]
 mod anvil_tests;
+#[cfg(test)]
+mod flow_tests;

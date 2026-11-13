@@ -1,12 +1,22 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./globals.css";
 
-export const metadata: Metadata = { title: "PCC Merchant Dashboard" };
+export const metadata: Metadata = {
+  title: "Tachyon Merchant",
+  icons: { icon: "/logo.svg" },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ fontFamily: "system-ui, sans-serif", margin: 0, padding: "2rem", maxWidth: 960 }}>{children}</body>
+      <body>{children}</body>
     </html>
   );
 }

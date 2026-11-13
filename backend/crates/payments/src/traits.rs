@@ -1,6 +1,6 @@
 //! Adapter traits. Implementations:
 //! - `OneClickAdapter`: `pcc-integration-client` (HTTP to the private TS worker), `mock::MockOneClick`.
-//! - `SourceExecutor`: `pcc-evm` plain EOA executor (M2); TS ZeroDev UserOp executor via client (M4).
+//! - `SourceExecutor`: `pcc-evm` plain EOA executor (M2); `IntegrationClient` session-key UserOp executor (M4).
 //! - `PaymentAuthorizer`: `pcc-auth` TOTP (M5); `mock::MockAuthorizer` (dev only).
 //! - `SigningProvider`: signs only a bounded, pre-approved operation.
 
@@ -96,6 +96,9 @@ pub struct DepositPlan {
     pub max_fee_wei: BaseUnits,
     /// Owner's explicit per-transaction approval reference.
     pub approval_ref: String,
+    /// Autopay mandate whose allowance pays this; `None` = the checkout allowance.
+    #[serde(default)]
+    pub mandate: Option<uuid::Uuid>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -122,6 +125,68 @@ pub trait SourceExecutor: Send + Sync {
     async fn execute_deposit(&self, plan: &DepositPlan) -> Result<B256, AdapterError>;
     async fn receipt(&self, chain_id: ChainId, tx_hash: B256) -> Result<Option<Receipt>, AdapterError>;
 }
+
+/// One checkout allowance per payer, chain and token, plus one per autopay mandate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct AllowanceKey {
+    pub owner: Address,
+    pub chain_id: ChainId,
+    pub token: Address,
+    pub mandate: Option<uuid::Uuid>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GrantRequest {
+    pub key: AllowanceKey,
+    /// Inclusive cap for each transfer.
+    pub max_amount: BaseUnits,
+    pub uses: u32,
+    pub validity_secs: u64,
+}
+
+/// An allowance awaiting the payer's EIP-712 signature.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PreparedGrant {
+    pub grant_id: String,
+    pub typed_data: serde_json::Value,
+    pub session_signer: Address,
+    pub uses: u32,
+    pub valid_until: u64,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Allowance {
+    pub key: AllowanceKey,
+    pub max_amount: BaseUnits,
+    pub uses_remaining: u32,
+    pub valid_until: u64,
+}
+
+impl Allowance {
+    /// Whether this allowance can pay `amount` of `key`'s token at `now_unix`.
+    #[must_use]
+    pub fn covers(&self, key: &AllowanceKey, amount: BaseUnits, now_unix: u64) -> bool {
+        self.key == *key && self.max_amount >= amount && self.uses_remaining > 0 && self.valid_until > now_unix
+    }
+}
+
+/// Per-payer spending allowances: the payer's wallet signs the Kernel enable
+/// payload once; the executor never holds the payer's key and counts uses.
+#[async_trait]
+pub trait SessionGrantPort: Send + Sync {
+    async fn prepare_grant(&self, req: &GrantRequest) -> Result<PreparedGrant, AdapterError>;
+    async fn enable_grant(&self, grant_id: &str, signature: &str) -> Result<Allowance, AdapterError>;
+    /// `None` when nothing is active (never enabled, used up, expired, revoked, or the executor restarted).
+    async fn allowance(&self, key: &AllowanceKey) -> Result<Option<Allowance>, AdapterError>;
+    /// Destroys the session key; returns false when nothing was active.
+    async fn revoke_allowance(&self, key: &AllowanceKey) -> Result<bool, AdapterError>;
+}
+
+/// Combined quote + session-deposit ports used by hosted checkout.
+pub trait CheckoutPorts: OneClickAdapter + SourceExecutor + SessionGrantPort {}
+
+impl<T: OneClickAdapter + SourceExecutor + SessionGrantPort> CheckoutPorts for T {}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnrollmentChallenge {

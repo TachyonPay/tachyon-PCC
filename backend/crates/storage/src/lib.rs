@@ -5,8 +5,9 @@
 //! - [`InMemoryRepository`] implements the same semantics (including the
 //!   `(merchant_id, idempotency_key)` uniqueness rule) for unit tests.
 //!
-//! The PostgreSQL implementation lands in M6 together with the durable
-//! event log and webhook delivery tables.
+//! The PostgreSQL schema (including the durable event log and webhook
+//! delivery tables) is committed in `migrations/`. The M6 API path under
+//! test uses the in-memory store; a sqlx pool can bind to the same schema.
 
 use async_trait::async_trait;
 use pcc_payments::domain::{MerchantId, PaymentAttempt, PaymentAttemptId, PaymentIntent, PaymentIntentId};

@@ -85,6 +85,7 @@ fn plan(from: Address, to: Address, asset: AssetId, amount: u128, max_fee: u128,
         amount: BaseUnits::from_u128(amount),
         max_fee_wei: BaseUnits::from_u128(max_fee),
         approval_ref: approval.into(),
+        mandate: None,
     }
 }
 

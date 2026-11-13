@@ -1,10 +1,10 @@
 //! Deposit orchestration: executable quote → validate → persist → simulate →
 //! (stop) → owner-approved broadcast → optional `/deposit/submit` → status poll.
 //!
-//! Broadcast still goes through [`crate::executor::AlloyEoaExecutor`], which
-//! enforces the execution gates independently of this layer.
+//! Broadcast goes through any [`SourceExecutor`] (M2 Alloy EOA or M4 session
+//! key via the TS worker). Gates are enforced by the executor independently.
 
-use crate::plan::plan_from_quote;
+use crate::plan::{assert_plan_matches_quote, plan_from_quote};
 use chrono::{DateTime, Duration, Utc};
 use pcc_payments::amount::BaseUnits;
 use pcc_payments::asset::AssetId;
@@ -102,6 +102,7 @@ where
         max_fee_wei,
         String::new(),
     )?;
+    assert_plan_matches_quote(&plan, &quote)?;
     let simulation = executor.simulate(&plan).await?;
 
     let attempt = PaymentAttempt {
@@ -186,6 +187,7 @@ where
         amount: attempt.quoted_input,
         max_fee_wei,
         approval_ref: approval_ref.to_owned(),
+        mandate: None,
     };
 
     let hash = executor.execute_deposit(&plan).await?;

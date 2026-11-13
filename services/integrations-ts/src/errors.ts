@@ -15,6 +15,7 @@ export const ERROR_CODES = [
   "MALFORMED_UPSTREAM",
   "SIGNATURE_INVALID",
   "NO_ROUTE",
+  "SESSION_REJECTED",
   "INTERNAL",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -47,5 +48,6 @@ export const err = {
   malformedUpstream: (m: string, cause?: unknown) => new WorkerError("MALFORMED_UPSTREAM", m, 502, cause),
   signatureInvalid: (m = "quote signature verification failed") => new WorkerError("SIGNATURE_INVALID", m, 422),
   noRoute: (m: string) => new WorkerError("NO_ROUTE", m, 422),
+  sessionRejected: (m: string) => new WorkerError("SESSION_REJECTED", m, 422),
   internal: (m = "internal error") => new WorkerError("INTERNAL", m, 500),
 };

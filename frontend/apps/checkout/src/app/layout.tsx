@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Private Crypto Checkout",
-  description: "Pay with any supported token; merchant receives their preferred asset privately.",
+  title: "Tachyon Pay",
+  description: "Pay with any supported token. The merchant receives their asset.",
+  icons: { icon: "/logo.svg" },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ fontFamily: "system-ui, sans-serif", margin: 0, padding: "2rem", maxWidth: 720 }}>{children}</body>
+      <body>{children}</body>
     </html>
   );
 }

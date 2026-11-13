@@ -2,7 +2,7 @@
   "name": "@pcc/dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "Merchant dashboard. M0/M1: shell + gate status; payout config, API keys and intents land in M6/M7.",
+  "description": "Merchant dashboard. API-key-per-tab; never bakes secrets into the Next bundle.",
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",

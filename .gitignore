@@ -28,6 +28,21 @@ contracts/broadcast/
 # Local executor state (signed-tx ledger + last preflight). Never commit.
 .pcc-ledger/
 .pcc-work/
+.pcc-aa-ledger/
+.pcc-grant-store/
+**/.pcc-aa-ledger/
+**/.pcc-grant-store/
+examples/merchant-demo/.data/
+
+# Demo recordings (large, local-only)
+*.webm
+*.mp4
+
+# Agent / editor scaffolding (not product)
+.agents/
+.cursor/
+**/AGENTS.md
+skills-lock.json
 
 # OS / editor
 .DS_Store

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Harborline — Mini Hull</title>
+    <link rel="icon" href="/boat.svg" />
+    <link rel="stylesheet" href="/shop.css" />
+  </head>
+  <body>
+    <a class="skip" href="#buy">Skip to buy</a>
+    <header class="top">
+      <a class="brand" href="/">
+        <img src="/boat.svg" alt="" width="32" height="32" />
+        Harborline
+      </a>
+      <p class="pill">Arbitrum USDC</p>
+    </header>
+    <main class="page">
+      <section class="hero" aria-labelledby="product-name">
+        <div class="visual">
+          <img src="/boat.svg" alt="Small 3D printed sailboat" width="280" height="280" />
+        </div>
+        <div class="copy">
+          <p class="kicker">3D printed · pocket size</p>
+          <h1 id="product-name">Mini Hull</h1>
+          <p class="lede">A 12 cm sailboat, printed in one piece. Desk ornament or bathtub captain — your call.</p>
+          <p class="price">0.20 <span>USDC</span></p>
+          <p class="muted">You pay on Base. It settles to the shop as USDC on Arbitrum.</p>
+          <div class="actions">
+            <button type="button" class="cta" id="buy">Buy Mini Hull</button>
+            <p class="status" id="status" role="status"></p>
+          </div>
+          <p class="error" id="error" role="alert" hidden></p>
+        </div>
+      </section>
+      <section class="facts" aria-label="Product details">
+        <article>
+          <h2>Print</h2>
+          <p>PLA hull, about 12 cm stem to stern. No assembly.</p>
+        </article>
+        <article>
+          <h2>Pay</h2>
+          <p>0.20 USDC on Arbitrum. You pay on Base. Checkout opens on this page.</p>
+        </article>
+        <article>
+          <h2>Settle</h2>
+          <p>Harborline receives USDC on Arbitrum. The Base pay and Arbitrum receive are not publicly linked.</p>
+        </article>
+      </section>
+      <section class="printer" aria-labelledby="printer-title">
+        <h2 id="printer-title">Print queue</h2>
+        <div class="printer-grid">
+          <figure class="cam">
+            <img id="printer-cam" alt="Bambu A1 live camera" width="640" height="360" hidden />
+            <figcaption class="muted" id="printer-cam-caption">Camera waits until the A1 is on this LAN.</figcaption>
+          </figure>
+          <p class="muted" id="printer-status" role="status" aria-atomic="true">Looking for the Bambu on this LAN…</p>
+        </div>
+      </section>
+      <section class="orders" id="orders" aria-labelledby="orders-title">
+        <div class="orders-head">
+          <h2 id="orders-title">Orders</h2>
+          <p class="muted">A paid Mini Hull is queued on the printer. It starts when the bed is idle.</p>
+        </div>
+        <div id="order-list" class="order-list">
+          <p class="muted">Loading orders…</p>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/shop.js"></script>
+  </body>
+</html>

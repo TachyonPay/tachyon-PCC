@@ -106,6 +106,7 @@ mod tests {
             amount: BaseUnits::from_u128(1_020_000),
             max_fee_wei: BaseUnits::from_u128(50_000_000_000_000),
             approval_ref: "appr-1".into(),
+            mandate: None,
         }
     }
 

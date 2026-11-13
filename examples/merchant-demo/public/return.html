@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Harborline — Order placed</title>
+    <link rel="icon" href="/boat.svg" />
+    <link rel="stylesheet" href="/shop.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="/">
+        <img src="/boat.svg" alt="" width="32" height="32" />
+        Harborline
+      </a>
+      <p class="pill">Order</p>
+    </header>
+    <main class="return">
+      <p class="kicker" id="kicker">Checking payment</p>
+      <h1 id="title">Looking up your Mini Hull</h1>
+      <p class="lede" id="lead">The shop confirms the intent on its server before it would ship a hull.</p>
+      <div id="receipt" class="receipt" hidden></div>
+      <section class="printer" aria-labelledby="printer-title">
+        <h2 id="printer-title">Printer</h2>
+        <div class="printer-grid">
+          <figure class="cam">
+            <img id="printer-cam" alt="Bambu A1 live camera" width="640" height="360" hidden />
+            <figcaption class="muted" id="printer-cam-caption">Camera waits until the A1 is on this LAN.</figcaption>
+          </figure>
+          <p class="muted" id="printer-status" role="status" aria-atomic="true">Looking for the Bambu on this LAN…</p>
+        </div>
+      </section>
+      <p class="error" id="error" role="alert" hidden></p>
+      <p class="actions">
+        <a class="cta" href="/#orders">See orders</a>
+        <a href="/confidential.html">Why there is no public correlation</a>
+      </p>
+    </main>
+    <script>
+      const q = new URLSearchParams(location.search);
+      const result = q.get("pcc_result") || "pending";
+      const intent = q.get("pcc_intent") || "";
+      const session = q.get("pcc_session") || "";
+      const orderParam = q.get("order") || "";
+      const kicker = document.getElementById("kicker");
+      const title = document.getElementById("title");
+      const lead = document.getElementById("lead");
+      const receipt = document.getElementById("receipt");
+      const errorBox = document.getElementById("error");
+
+      function units(v) {
+        if (!/^[0-9]+$/.test(v || "")) return v || "—";
+        const padded = v.padStart(7, "0");
+        const frac = padded.slice(-6).replace(/0+$/, "");
+        return frac ? `${padded.slice(0, -6)}.${frac}` : padded.slice(0, -6);
+      }
+
+      function row(label, value, href) {
+        const dd = href
+          ? `<a href="${href}" rel="noreferrer">${value}</a>`
+          : `<span class="mono">${value}</span>`;
+        return `<div><dt>${label}</dt><dd>${dd}</dd></div>`;
+      }
+
+      function render(order) {
+        const ok = order.status === "succeeded";
+        kicker.textContent = ok ? "Order placed" : order.status === "failed" ? "Payment failed" : "Payment in progress";
+        title.textContent = ok ? "Mini Hull is paid" : "Checking the Mini Hull order";
+        lead.textContent = ok
+          ? `Harborline received ${units(order.output_amount)} USDC on Arbitrum.`
+          : `Server status: ${order.status} for ${order.merchant_order_id}.`;
+        const paid = order.quoted_input ? `${units(order.quoted_input)} USDC on ${order.pay_chain}` : `USDC on ${order.pay_chain}`;
+        receipt.hidden = false;
+        receipt.innerHTML = `
+          <p class="ok-badge">${ok ? "Captured" : order.status.replaceAll("_", " ")}</p>
+          <dl>
+            ${row("Product", order.product || "Mini Hull")}
+            ${row("Order", order.merchant_order_id)}
+            ${row("You paid", paid)}
+            ${row("Harborline received", `${units(order.output_amount)} USDC on ${order.settle_chain}`)}
+            ${order.deposit_address ? row("1Click deposit (Base)", order.deposit_address) : ""}
+            ${order.receiving_address ? row("Payout address (Arbitrum)", order.receiving_address) : ""}
+            ${order.base_tx ? row("Base settlement", "View on BaseScan", order.explorers?.base) : ""}
+            ${order.arb_tx ? row("Arbitrum settlement", "View on Arbiscan", order.explorers?.arbitrum) : ""}
+            ${row("Correlation", "None on the public ledgers", order.explorers?.confidential)}
+            ${
+              order.print?.status
+                ? row(
+                    "Print",
+                    order.print.status === "queued"
+                      ? "Queued on the Bambu A1"
+                      : order.print.status === "sending"
+                        ? "Sending to the printer"
+                        : order.print.status === "printing"
+                          ? "Printing"
+                          : order.print.status === "done"
+                            ? "Print finished"
+                            : order.print.error || order.print.status,
+                  )
+                : ""
+            }
+          </dl>
+        `;
+      }
+
+      async function load() {
+        const params = new URLSearchParams();
+        if (intent) params.set("intent", intent);
+        if (orderParam) params.set("order", orderParam);
+        if (session) params.set("session", session);
+        if (!params.toString()) {
+          if (result === "success") {
+            params.set("order", "boat-1794424198618");
+          } else {
+            title.textContent = "No order on this return";
+            return;
+          }
+        }
+        const res = await fetch(`/api/order?${params}`);
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error ?? "Order not found");
+        render(body);
+        const printBusy = body.print && (body.print.status === "queued" || body.print.status === "sending" || body.print.status === "printing");
+        if ((body.status !== "succeeded" && body.status !== "failed" && intent) || printBusy) {
+          setTimeout(load, 2000);
+        }
+      }
+
+      async function loadPrinter() {
+        const statusEl = document.getElementById("printer-status");
+        const cam = document.getElementById("printer-cam");
+        const cap = document.getElementById("printer-cam-caption");
+        try {
+          const res = await fetch("/api/printer", { headers: { accept: "application/json" } });
+          const p = await res.json();
+          if (!statusEl) return;
+          if (!p.online) {
+            statusEl.textContent = p.error || "Bambu A1 offline.";
+            if (cam) cam.hidden = true;
+            return;
+          }
+          const state = (p.gcode_state || "idle").toLowerCase();
+          const heat = p.nozzle != null && p.bed != null ? ` Nozzle ${p.nozzle}°C, bed ${p.bed}°C.` : "";
+          statusEl.textContent = `Bambu A1 ${state}.${heat}`;
+          if (cam) {
+            cam.hidden = false;
+            cam.src = `/api/printer/camera.jpg?t=${Date.now()}`;
+          }
+          if (cap) cap.textContent = "Live chamber camera on the A1.";
+        } catch {
+          if (statusEl) statusEl.textContent = "Could not read printer status.";
+        }
+      }
+
+      if (result === "success") {
+        kicker.textContent = "Order placed";
+        title.textContent = "Payment received";
+      } else if (result === "failure") {
+        title.textContent = "Payment did not succeed";
+      }
+      load().catch((e) => {
+        errorBox.hidden = false;
+        errorBox.textContent = e instanceof Error ? e.message : "Could not load the order";
+      });
+      void loadPrinter();
+      setInterval(() => void loadPrinter(), 2000);
+    </script>
+  </body>
+</html>

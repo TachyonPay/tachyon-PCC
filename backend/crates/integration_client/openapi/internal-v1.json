@@ -10,6 +10,386 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/internal/v1/aa/execute": {
+      "post": {
+        "tags": [
+          "aa"
+        ],
+        "operationId": "aa_execute",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepositPlanDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecuteResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "session policy / quote-bind rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/aa/grants/enable": {
+      "post": {
+        "tags": [
+          "aa"
+        ],
+        "operationId": "aa_grant_enable",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantEnableDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllowanceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "signature does not recover to the owner, or grant expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/aa/grants/prepare": {
+      "post": {
+        "tags": [
+          "aa"
+        ],
+        "operationId": "aa_grant_prepare",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantPrepareDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantPreparedDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "owner not delegated to Kernel on that chain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/aa/grants/revoke": {
+      "post": {
+        "tags": [
+          "aa"
+        ],
+        "operationId": "aa_grant_revoke",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllowanceKeyDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/aa/grants/status": {
+      "post": {
+        "tags": [
+          "aa"
+        ],
+        "operationId": "aa_grant_status",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllowanceKeyDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllowanceDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "no active allowance (never enabled, used up, expired, revoked, or worker restarted)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/aa/receipt": {
+      "get": {
+        "tags": [
+          "aa"
+        ],
+        "operationId": "aa_receipt",
+        "parameters": [
+          {
+            "name": "chainId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "txHash",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/aa/simulate": {
+      "post": {
+        "tags": [
+          "aa"
+        ],
+        "operationId": "aa_simulate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepositPlanDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/v1/health": {
       "get": {
         "tags": [
@@ -382,6 +762,81 @@
           }
         }
       },
+      "AllowanceDto": {
+        "type": "object",
+        "description": "An active allowance as the worker tracks it. The on-chain policies are authoritative.",
+        "required": [
+          "owner",
+          "chainId",
+          "token",
+          "maxAmount",
+          "usesRemaining",
+          "validUntil"
+        ],
+        "properties": {
+          "chainId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "mandateId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Autopay mandate the allowance belongs to; absent = the payer's checkout allowance."
+          },
+          "maxAmount": {
+            "$ref": "#/components/schemas/BaseUnits",
+            "description": "Inclusive cap for each transfer."
+          },
+          "owner": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "usesRemaining": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "validUntil": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "AllowanceKeyDto": {
+        "type": "object",
+        "description": "One allowance is identified by payer, chain and token.",
+        "required": [
+          "owner",
+          "chainId",
+          "token"
+        ],
+        "properties": {
+          "chainId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "mandateId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Autopay mandate the allowance belongs to; absent = the payer's checkout allowance."
+          },
+          "owner": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
       "AssetsResponse": {
         "type": "object",
         "required": [
@@ -421,6 +876,67 @@
           "SIMPLE",
           "MEMO"
         ]
+      },
+      "DepositPlanDto": {
+        "type": "object",
+        "description": "Deposit the session-key executor may perform. `to` and `quote_deposit_address`\nmust be the same 1Click deposit address from the verified quote; the worker\nrefuses a mismatch (quote-address substitution).",
+        "required": [
+          "attemptId",
+          "chainId",
+          "token",
+          "from",
+          "to",
+          "quoteDepositAddress",
+          "amount",
+          "maxFeeWei",
+          "approvalRef"
+        ],
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/BaseUnits"
+          },
+          "approvalRef": {
+            "type": "string"
+          },
+          "attemptId": {
+            "type": "string"
+          },
+          "chainId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "from": {
+            "type": "string"
+          },
+          "gasLimit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mandateId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Autopay mandate the allowance belongs to; absent = the payer's checkout allowance."
+          },
+          "maxFeeWei": {
+            "$ref": "#/components/schemas/BaseUnits"
+          },
+          "quoteDepositAddress": {
+            "type": "string",
+            "description": "Verified quote deposit address; must equal `to`."
+          },
+          "to": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string",
+            "description": "ERC-20 contract on the origin chain. Native deposits are refused."
+          }
+        }
       },
       "DepositSubmittedDto": {
         "type": "object",
@@ -467,6 +983,7 @@
           "MALFORMED_UPSTREAM",
           "SIGNATURE_INVALID",
           "NO_ROUTE",
+          "SESSION_REJECTED",
           "INTERNAL"
         ]
       },
@@ -478,6 +995,121 @@
         "properties": {
           "error": {
             "$ref": "#/components/schemas/ErrorBody"
+          }
+        }
+      },
+      "ExecuteResponseDto": {
+        "type": "object",
+        "required": [
+          "userOpHash",
+          "txHash"
+        ],
+        "properties": {
+          "txHash": {
+            "type": "string"
+          },
+          "userOpHash": {
+            "type": "string"
+          }
+        }
+      },
+      "GrantEnableDto": {
+        "type": "object",
+        "required": [
+          "grantId",
+          "signature"
+        ],
+        "properties": {
+          "grantId": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        }
+      },
+      "GrantPrepareDto": {
+        "type": "object",
+        "description": "Ask the worker for a spending allowance the payer will sign once.",
+        "required": [
+          "owner",
+          "chainId",
+          "token",
+          "maxAmount",
+          "uses",
+          "validitySec"
+        ],
+        "properties": {
+          "chainId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "mandateId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Autopay mandate the allowance belongs to; absent = the payer's checkout allowance."
+          },
+          "maxAmount": {
+            "$ref": "#/components/schemas/BaseUnits",
+            "description": "Inclusive cap for each transfer."
+          },
+          "owner": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string",
+            "description": "ERC-20 the session key may transfer."
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Transfers allowed in total (1..=20); enforced on-chain by a rate-limit policy.",
+            "minimum": 0
+          },
+          "validitySec": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Seconds until the allowance expires (600..=30 days).",
+            "minimum": 0
+          }
+        }
+      },
+      "GrantPreparedDto": {
+        "type": "object",
+        "required": [
+          "grantId",
+          "typedData",
+          "sessionSigner",
+          "uses",
+          "validUntil",
+          "expiresAt"
+        ],
+        "properties": {
+          "expiresAt": {
+            "type": "string"
+          },
+          "grantId": {
+            "type": "string"
+          },
+          "sessionSigner": {
+            "type": "string"
+          },
+          "typedData": {
+            "type": "object",
+            "description": "EIP-712 payload for `eth_signTypedData_v4`; integers are decimal strings."
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "validUntil": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       },
@@ -573,6 +1205,83 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        }
+      },
+      "ReceiptDto": {
+        "type": "object",
+        "required": [
+          "txHash",
+          "blockNumber",
+          "success",
+          "gasUsed"
+        ],
+        "properties": {
+          "blockNumber": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "gasUsed": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "txHash": {
+            "type": "string"
+          }
+        }
+      },
+      "RevokedDto": {
+        "type": "object",
+        "required": [
+          "revoked"
+        ],
+        "properties": {
+          "revoked": {
+            "type": "boolean",
+            "description": "False when there was no active allowance to revoke."
+          }
+        }
+      },
+      "SimulationDto": {
+        "type": "object",
+        "required": [
+          "ok",
+          "gasEstimate",
+          "maxFeeWei",
+          "senderBalance",
+          "notes"
+        ],
+        "properties": {
+          "gasEstimate": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxFeeWei": {
+            "$ref": "#/components/schemas/BaseUnits"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "rejectCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "senderBalance": {
+            "$ref": "#/components/schemas/BaseUnits"
           }
         }
       },
@@ -821,6 +1530,9 @@
     },
     {
       "name": "near"
+    },
+    {
+      "name": "aa"
     }
   ]
 }

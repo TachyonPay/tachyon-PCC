@@ -29,6 +29,8 @@ pub enum ErrorCode {
     MalformedUpstream,
     SignatureInvalid,
     NoRoute,
+    /// Session-key UserOp failed policy / quote-bind admission.
+    SessionRejected,
     Internal,
 }
 
@@ -171,6 +173,132 @@ pub struct AckResponse {
     pub ok: bool,
 }
 
+/// Deposit the session-key executor may perform. `to` and `quote_deposit_address`
+/// must be the same 1Click deposit address from the verified quote; the worker
+/// refuses a mismatch (quote-address substitution).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DepositPlanDto {
+    pub attempt_id: String,
+    pub chain_id: u64,
+    /// ERC-20 contract on the origin chain. Native deposits are refused.
+    pub token: String,
+    pub from: String,
+    pub to: String,
+    /// Verified quote deposit address; must equal `to`.
+    pub quote_deposit_address: String,
+    pub amount: BaseUnits,
+    pub max_fee_wei: BaseUnits,
+    pub approval_ref: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gas_limit: Option<String>,
+    /// Autopay mandate the allowance belongs to; absent = the payer's checkout allowance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mandate_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulationDto {
+    pub ok: bool,
+    pub gas_estimate: u64,
+    pub max_fee_wei: BaseUnits,
+    pub sender_balance: BaseUnits,
+    pub notes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reject_code: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecuteResponseDto {
+    pub user_op_hash: String,
+    pub tx_hash: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReceiptDto {
+    pub tx_hash: String,
+    pub block_number: u64,
+    pub success: bool,
+    pub gas_used: u64,
+}
+
+/// Ask the worker for a spending allowance the payer will sign once.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GrantPrepareDto {
+    pub owner: String,
+    pub chain_id: u64,
+    /// ERC-20 the session key may transfer.
+    pub token: String,
+    /// Inclusive cap for each transfer.
+    pub max_amount: BaseUnits,
+    /// Transfers allowed in total (1..=20); enforced on-chain by a rate-limit policy.
+    pub uses: u32,
+    /// Seconds until the allowance expires (600..=30 days).
+    pub validity_sec: u64,
+    /// Autopay mandate the allowance belongs to; absent = the payer's checkout allowance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mandate_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GrantPreparedDto {
+    pub grant_id: String,
+    /// EIP-712 payload for `eth_signTypedData_v4`; integers are decimal strings.
+    #[schema(value_type = Object)]
+    pub typed_data: serde_json::Value,
+    pub session_signer: String,
+    pub uses: u32,
+    pub valid_until: u64,
+    pub expires_at: String,
+}
+
+/// One allowance is identified by payer, chain and token.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AllowanceKeyDto {
+    pub owner: String,
+    pub chain_id: u64,
+    pub token: String,
+    /// Autopay mandate the allowance belongs to; absent = the payer's checkout allowance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mandate_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RevokedDto {
+    /// False when there was no active allowance to revoke.
+    pub revoked: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GrantEnableDto {
+    pub grant_id: String,
+    pub signature: String,
+}
+
+/// An active allowance as the worker tracks it. The on-chain policies are authoritative.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AllowanceDto {
+    pub owner: String,
+    pub chain_id: u64,
+    pub token: String,
+    /// Inclusive cap for each transfer.
+    pub max_amount: BaseUnits,
+    pub uses_remaining: u32,
+    pub valid_until: u64,
+    /// Autopay mandate the allowance belongs to; absent = the payer's checkout allowance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mandate_id: Option<String>,
+}
+
 // ---------------------------------------------------------------------------
 // Path declarations. These functions exist only to carry `utoipa::path`
 // metadata; the worker implements them in TypeScript.
@@ -179,9 +307,43 @@ pub struct AckResponse {
 #[allow(dead_code)]
 mod paths {
     use super::{
-        AckResponse, AssetsResponse, DepositSubmittedDto, ErrorResponse, HealthResponse, QuoteRequestDto,
-        SwapStatusDto, VerifiedQuoteDto, VerifyRequestDto,
+        AckResponse, AllowanceDto, AllowanceKeyDto, AssetsResponse, DepositPlanDto, DepositSubmittedDto, ErrorResponse,
+        ExecuteResponseDto, GrantEnableDto, GrantPrepareDto, GrantPreparedDto, HealthResponse, QuoteRequestDto,
+        ReceiptDto, RevokedDto, SimulationDto, SwapStatusDto, VerifiedQuoteDto, VerifyRequestDto,
     };
+
+    #[utoipa::path(post, path = "/internal/v1/aa/grants/prepare", tag = "aa",
+        request_body = GrantPrepareDto,
+        responses(
+            (status = 200, body = GrantPreparedDto),
+            (status = 400, body = ErrorResponse),
+            (status = 401, body = ErrorResponse),
+            (status = 422, body = ErrorResponse, description = "owner not delegated to Kernel on that chain")))]
+    pub fn aa_grant_prepare() {}
+
+    #[utoipa::path(post, path = "/internal/v1/aa/grants/enable", tag = "aa",
+        request_body = GrantEnableDto,
+        responses(
+            (status = 200, body = AllowanceDto),
+            (status = 400, body = ErrorResponse),
+            (status = 401, body = ErrorResponse),
+            (status = 422, body = ErrorResponse, description = "signature does not recover to the owner, or grant expired")))]
+    pub fn aa_grant_enable() {}
+
+    #[utoipa::path(post, path = "/internal/v1/aa/grants/status", tag = "aa",
+        request_body = AllowanceKeyDto,
+        responses(
+            (status = 200, body = AllowanceDto),
+            (status = 401, body = ErrorResponse),
+            (status = 404, body = ErrorResponse, description = "no active allowance (never enabled, used up, expired, revoked, or worker restarted)")))]
+    pub fn aa_grant_status() {}
+
+    #[utoipa::path(post, path = "/internal/v1/aa/grants/revoke", tag = "aa",
+        request_body = AllowanceKeyDto,
+        responses(
+            (status = 200, body = RevokedDto),
+            (status = 401, body = ErrorResponse)))]
+    pub fn aa_grant_revoke() {}
 
     #[utoipa::path(get, path = "/internal/v1/health", tag = "meta",
         responses((status = 200, body = HealthResponse)))]
@@ -234,6 +396,31 @@ mod paths {
             (status = 401, body = ErrorResponse),
             (status = 502, body = ErrorResponse)))]
     pub fn near_deposit_submitted() {}
+
+    #[utoipa::path(post, path = "/internal/v1/aa/simulate", tag = "aa",
+        request_body = DepositPlanDto,
+        responses(
+            (status = 200, body = SimulationDto),
+            (status = 400, body = ErrorResponse),
+            (status = 401, body = ErrorResponse)))]
+    pub fn aa_simulate() {}
+
+    #[utoipa::path(post, path = "/internal/v1/aa/execute", tag = "aa",
+        request_body = DepositPlanDto,
+        responses(
+            (status = 200, body = ExecuteResponseDto),
+            (status = 400, body = ErrorResponse),
+            (status = 401, body = ErrorResponse),
+            (status = 422, body = ErrorResponse, description = "session policy / quote-bind rejected")))]
+    pub fn aa_execute() {}
+
+    #[utoipa::path(get, path = "/internal/v1/aa/receipt", tag = "aa",
+        params(("chainId" = u64, Query), ("txHash" = String, Query)),
+        responses(
+            (status = 200, body = ReceiptDto),
+            (status = 401, body = ErrorResponse),
+            (status = 404, body = ErrorResponse)))]
+    pub fn aa_receipt() {}
 }
 
 #[derive(OpenApi)]
@@ -249,14 +436,23 @@ mod paths {
         paths::near_quote,
         paths::near_verify,
         paths::near_status,
-        paths::near_deposit_submitted
+        paths::near_deposit_submitted,
+        paths::aa_simulate,
+        paths::aa_execute,
+        paths::aa_receipt,
+        paths::aa_grant_prepare,
+        paths::aa_grant_enable,
+        paths::aa_grant_status,
+        paths::aa_grant_revoke
     ),
     components(schemas(
         ErrorCode, ErrorBody, ErrorResponse, HealthResponse, TokenEntry, AssetsResponse,
         QuoteRequestDto, VerifiedQuoteDto, VerifyRequestDto, StatusQuery, SwapStatusDto,
-        DepositSubmittedDto, AckResponse, BaseUnits, Confidentiality, SwapType, DepositMode, OneClickStatus
+        DepositSubmittedDto, AckResponse, DepositPlanDto, SimulationDto, ExecuteResponseDto,
+        ReceiptDto, GrantPrepareDto, GrantPreparedDto, GrantEnableDto, AllowanceDto, AllowanceKeyDto, RevokedDto,
+        BaseUnits, Confidentiality, SwapType, DepositMode, OneClickStatus
     )),
-    tags((name = "meta"), (name = "near"))
+    tags((name = "meta"), (name = "near"), (name = "aa"))
 )]
 pub struct InternalApiDoc;
 
@@ -304,6 +500,28 @@ mod tests {
         assert_eq!(v["authorizationRef"], "a");
         assert_eq!(v["amountOut"], "5");
         assert_eq!(v["confidentiality"], "basic");
+    }
+
+    #[test]
+    fn deposit_plan_dto_is_camel_case_strings() {
+        let dto = DepositPlanDto {
+            attempt_id: "11111111-1111-1111-1111-111111111111".into(),
+            chain_id: 11_155_111,
+            token: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913".into(),
+            from: "0x1".into(),
+            to: "0x2".into(),
+            quote_deposit_address: "0x2".into(),
+            amount: BaseUnits::from_u128(1_020_000),
+            max_fee_wei: BaseUnits::from_u128(1),
+            approval_ref: "appr".into(),
+            gas_limit: None,
+            mandate_id: None,
+        };
+        let v = serde_json::to_value(&dto).unwrap();
+        assert_eq!(v["quoteDepositAddress"], "0x2");
+        assert_eq!(v["amount"], "1020000");
+        assert_eq!(v["chainId"], 11_155_111);
+        assert!(v.get("gasLimit").is_none());
     }
 
     #[test]

@@ -20,6 +20,8 @@ impl ChainId {
     pub const AVALANCHE: Self = Self(43114);
     pub const SCROLL: Self = Self(534_352);
     pub const SEPOLIA: Self = Self(11_155_111);
+    /// Base Sepolia. 7702 account tests only; never a 1Click settlement chain.
+    pub const BASE_SEPOLIA: Self = Self(84_532);
     /// Anvil/Hardhat local chain. Never a mainnet candidate.
     pub const ANVIL: Self = Self(31_337);
 
@@ -113,6 +115,32 @@ impl AssetId {
             one_click_asset_id: asset_id.to_owned(),
         })
     }
+
+    /// Circle USDC on Base. MVP payer source asset for hosted checkout.
+    #[must_use]
+    pub fn usdc_base() -> Self {
+        Self {
+            chain_id: ChainId::BASE,
+            token: TokenRef::Erc20 {
+                address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913".parse().expect("usdc base"),
+            },
+            decimals: 6,
+            one_click_asset_id: "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near".into(),
+        }
+    }
+
+    /// Circle USDC on Arbitrum. Default demo merchant payout asset.
+    #[must_use]
+    pub fn usdc_arbitrum() -> Self {
+        Self {
+            chain_id: ChainId::ARBITRUM,
+            token: TokenRef::Erc20 {
+                address: "0xaf88d065e77c8cc2239327c5edb3a432268e5831".parse().expect("usdc arb"),
+            },
+            decimals: 6,
+            one_click_asset_id: "nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near".into(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -130,6 +158,8 @@ mod tests {
         assert_eq!(ChainId::from_one_click_blockchain("near"), None);
         assert_eq!(ChainId::SEPOLIA.one_click_blockchain(), None);
         assert!(!ChainId::SEPOLIA.is_mainnet_candidate());
+        assert_eq!(ChainId::BASE_SEPOLIA.one_click_blockchain(), None);
+        assert!(!ChainId::BASE_SEPOLIA.is_mainnet_candidate());
     }
 
     #[test]
@@ -159,5 +189,18 @@ mod tests {
         let b =
             AssetId::from_one_click_token("arb", Some("0xaf88d065e77c8cc2239327c5edb3a432268e5831"), 6, "b").unwrap();
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn well_known_usdc_ids_match_1click() {
+        assert_eq!(
+            AssetId::usdc_base().one_click_asset_id,
+            "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near"
+        );
+        assert_eq!(
+            AssetId::usdc_arbitrum().one_click_asset_id,
+            "nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near"
+        );
+        assert_ne!(AssetId::usdc_base(), AssetId::usdc_arbitrum());
     }
 }

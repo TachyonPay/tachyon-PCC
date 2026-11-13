@@ -3,7 +3,8 @@
 Schema migrations are owned by the Rust `pcc-storage` crate and live in
 `backend/crates/storage/migrations/` (embedded via `sqlx::migrate!`). This
 directory intentionally contains no second copy; `infra/db/migrations/` is
-reserved for operational scripts (backups, retention) added in M8.
+reserved for operational scripts (backups, retention). M8 did not add a
+second migration tree — keep a single source of schema in `pcc-storage`.
 
 Local Postgres: `docker compose -f infra/docker/docker-compose.yml up -d`.
 

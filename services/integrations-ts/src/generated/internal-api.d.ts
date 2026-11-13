@@ -4,6 +4,118 @@
  */
 
 export interface paths {
+    "/internal/v1/aa/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["aa_execute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/aa/grants/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["aa_grant_enable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/aa/grants/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["aa_grant_prepare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/aa/grants/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["aa_grant_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/aa/grants/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["aa_grant_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/aa/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["aa_receipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/aa/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["aa_simulate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/health": {
         parameters: {
             query?: never;
@@ -107,6 +219,30 @@ export interface components {
         AckResponse: {
             ok: boolean;
         };
+        /** @description An active allowance as the worker tracks it. The on-chain policies are authoritative. */
+        AllowanceDto: {
+            /** Format: int64 */
+            chainId: number;
+            /** @description Autopay mandate the allowance belongs to; absent = the payer's checkout allowance. */
+            mandateId?: string | null;
+            /** @description Inclusive cap for each transfer. */
+            maxAmount: components["schemas"]["BaseUnits"];
+            owner: string;
+            token: string;
+            /** Format: int32 */
+            usesRemaining: number;
+            /** Format: int64 */
+            validUntil: number;
+        };
+        /** @description One allowance is identified by payer, chain and token. */
+        AllowanceKeyDto: {
+            /** Format: int64 */
+            chainId: number;
+            /** @description Autopay mandate the allowance belongs to; absent = the payer's checkout allowance. */
+            mandateId?: string | null;
+            owner: string;
+            token: string;
+        };
         AssetsResponse: {
             fetchedAt: string;
             tokens: components["schemas"]["TokenEntry"][];
@@ -123,6 +259,28 @@ export interface components {
          * @enum {string}
          */
         DepositMode: "SIMPLE" | "MEMO";
+        /**
+         * @description Deposit the session-key executor may perform. `to` and `quote_deposit_address`
+         *     must be the same 1Click deposit address from the verified quote; the worker
+         *     refuses a mismatch (quote-address substitution).
+         */
+        DepositPlanDto: {
+            amount: components["schemas"]["BaseUnits"];
+            approvalRef: string;
+            attemptId: string;
+            /** Format: int64 */
+            chainId: number;
+            from: string;
+            gasLimit?: string | null;
+            /** @description Autopay mandate the allowance belongs to; absent = the payer's checkout allowance. */
+            mandateId?: string | null;
+            maxFeeWei: components["schemas"]["BaseUnits"];
+            /** @description Verified quote deposit address; must equal `to`. */
+            quoteDepositAddress: string;
+            to: string;
+            /** @description ERC-20 contract on the origin chain. Native deposits are refused. */
+            token: string;
+        };
         DepositSubmittedDto: {
             depositAddress: string;
             txHash: string;
@@ -135,9 +293,50 @@ export interface components {
          * @description Stable machine-readable error codes returned by the worker.
          * @enum {string}
          */
-        ErrorCode: "UNAUTHORIZED" | "INVALID_REQUEST" | "AUTH_REF_REUSED" | "UPSTREAM_TIMEOUT" | "UPSTREAM_UNAUTHORIZED" | "UPSTREAM_RATE_LIMITED" | "UPSTREAM_REJECTED" | "UPSTREAM_UNAVAILABLE" | "MALFORMED_UPSTREAM" | "SIGNATURE_INVALID" | "NO_ROUTE" | "INTERNAL";
+        ErrorCode: "UNAUTHORIZED" | "INVALID_REQUEST" | "AUTH_REF_REUSED" | "UPSTREAM_TIMEOUT" | "UPSTREAM_UNAUTHORIZED" | "UPSTREAM_RATE_LIMITED" | "UPSTREAM_REJECTED" | "UPSTREAM_UNAVAILABLE" | "MALFORMED_UPSTREAM" | "SIGNATURE_INVALID" | "NO_ROUTE" | "SESSION_REJECTED" | "INTERNAL";
         ErrorResponse: {
             error: components["schemas"]["ErrorBody"];
+        };
+        ExecuteResponseDto: {
+            txHash: string;
+            userOpHash: string;
+        };
+        GrantEnableDto: {
+            grantId: string;
+            signature: string;
+        };
+        /** @description Ask the worker for a spending allowance the payer will sign once. */
+        GrantPrepareDto: {
+            /** Format: int64 */
+            chainId: number;
+            /** @description Autopay mandate the allowance belongs to; absent = the payer's checkout allowance. */
+            mandateId?: string | null;
+            /** @description Inclusive cap for each transfer. */
+            maxAmount: components["schemas"]["BaseUnits"];
+            owner: string;
+            /** @description ERC-20 the session key may transfer. */
+            token: string;
+            /**
+             * Format: int32
+             * @description Transfers allowed in total (1..=20); enforced on-chain by a rate-limit policy.
+             */
+            uses: number;
+            /**
+             * Format: int64
+             * @description Seconds until the allowance expires (600..=30 days).
+             */
+            validitySec: number;
+        };
+        GrantPreparedDto: {
+            expiresAt: string;
+            grantId: string;
+            sessionSigner: string;
+            /** @description EIP-712 payload for `eth_signTypedData_v4`; integers are decimal strings. */
+            typedData: Record<string, never>;
+            /** Format: int32 */
+            uses: number;
+            /** Format: int64 */
+            validUntil: number;
         };
         HealthResponse: {
             apiVersion: string;
@@ -169,6 +368,27 @@ export interface components {
             refundTo: string;
             /** Format: int32 */
             slippageBps: number;
+        };
+        ReceiptDto: {
+            /** Format: int64 */
+            blockNumber: number;
+            /** Format: int64 */
+            gasUsed: number;
+            success: boolean;
+            txHash: string;
+        };
+        RevokedDto: {
+            /** @description False when there was no active allowance to revoke. */
+            revoked: boolean;
+        };
+        SimulationDto: {
+            /** Format: int64 */
+            gasEstimate: number;
+            maxFeeWei: components["schemas"]["BaseUnits"];
+            notes: string[];
+            ok: boolean;
+            rejectCode?: string | null;
+            senderBalance: components["schemas"]["BaseUnits"];
         };
         StatusQuery: {
             depositAddress: string;
@@ -241,6 +461,298 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    aa_execute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepositPlanDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecuteResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description session policy / quote-bind rejected */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    aa_grant_enable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantEnableDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllowanceDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description signature does not recover to the owner, or grant expired */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    aa_grant_prepare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantPrepareDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantPreparedDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description owner not delegated to Kernel on that chain */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    aa_grant_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllowanceKeyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokedDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    aa_grant_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllowanceKeyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllowanceDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description no active allowance (never enabled, used up, expired, revoked, or worker restarted) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    aa_receipt: {
+        parameters: {
+            query: {
+                chainId: number;
+                txHash: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    aa_simulate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepositPlanDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimulationDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     health: {
         parameters: {
             query?: never;

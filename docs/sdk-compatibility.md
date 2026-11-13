@@ -63,6 +63,8 @@ only (non-https base URLs are refused at config load).
 | `@zerodev/ecdsa-validator` | **5.4.9** | installed |
 | `viem` | **2.57.16** | installed (worker + frontend share the pin) |
 | Kernel version pinned | `KERNEL_V3_3` with `getEntryPoint("0.7")` | `src/account-abstraction/pins.ts` |
+| EIP-7702 implementation | `KERNEL_7702_DELEGATION_ADDRESS` `0xd6CEDDe84be40893d153Be9d467CD6aD37875b28` | `@zerodev/sdk/constants`; we never overwrite an unfamiliar designator |
+| 7702 helpers | `create7702KernelAccount` / `create7702KernelAccountClient` | `@zerodev/ecdsa-validator` 5.4.9 |
 | Call policy version | `V0_0_4` (we do not adopt V0_0_5 until reviewed) | `policy.ts` |
 
 **Do not mix:** the Kernel repo `dev` branch README documents **Kernel v4 on
@@ -78,7 +80,12 @@ with a payment-bound hash, C) **POC default:** `transfer` on an allowlisted
 token with `amount <= cap` and **any recipient** (session key can drain
 `maxAmount` per UserOp if compromised; cap is not cumulative). A signature-
 bound executor (B) is the intended follow-up. `buildErc20TransferPermission`
-omits the recipient constraint when `recipient` is unset.
+omits the recipient constraint when `recipient` is unset. The M3 grant also
+installs `toTimestampPolicy`, `toGasPolicy` (`allowed` is a **wei spend cap**, not a
+gas-unit limit; default 0.01 ETH), and `toRateLimitPolicy({ count: 1 })` so a
+compromised session key is single-use even under option C. Never `toSudoPolicy`.
+M4 binds each payment UserOp recipient to the verified 1Click deposit address
+in `AaService` even though option C does not constrain recipient on-chain.
 
 ## Rust toolchain
 

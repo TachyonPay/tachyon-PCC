@@ -114,20 +114,35 @@ const TransactionDetails = z
   })
   .loose();
 
+/** 1Click /v0/status sometimes returns amounts as JSON numbers, not strings. */
+const StatusAmount = z.union([
+  BaseUnitsString,
+  z
+    .number()
+    .int()
+    .nonnegative()
+    .transform((n) => String(n)),
+]);
+
 export const SwapDetailsSchema = z
   .object({
     originChainTxHashes: z.array(TransactionDetails).optional().default([]),
     destinationChainTxHashes: z.array(TransactionDetails).optional().default([]),
-    amountIn: BaseUnitsString.optional(),
-    amountOut: BaseUnitsString.optional(),
-    refundedAmount: BaseUnitsString.optional(),
+    amountIn: StatusAmount.nullish(),
+    amountOut: StatusAmount.nullish(),
+    refundedAmount: StatusAmount.nullish(),
   })
   .loose();
+
+/** Nested quote on /v0/status omits correlationId (it lives on the status body). */
+const StatusEmbeddedQuoteSchema = QuoteResponseSchema.extend({
+  correlationId: z.string().min(1).optional(),
+});
 
 export const StatusResponseSchema = z
   .object({
     correlationId: z.string(),
-    quoteResponse: QuoteResponseSchema,
+    quoteResponse: StatusEmbeddedQuoteSchema,
     status: OneClickStatus,
     updatedAt: z.string().datetime(),
     swapDetails: SwapDetailsSchema,

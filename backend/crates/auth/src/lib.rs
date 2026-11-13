@@ -1,12 +1,20 @@
-//! Authentication primitives.
+//! Authentication primitives: merchant API keys, SIWE, RFC 6238 TOTP.
 //!
-//! M0/M1 scope: merchant API-key hashing and the guard that keeps the mock
-//! authenticator out of deployed builds. SIWE verification and RFC 6238 TOTP
-//! are implemented in M5 behind `PaymentAuthorizer`.
+//! The mock authenticator stays behind a debug build *and* an explicit env flag.
+//! TOTP secrets are wrapped at rest and never logged.
 
 use rand::RngCore;
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
+
+pub mod authorizer;
+pub mod siwe;
+pub mod totp;
+
+pub use authorizer::TotpAuthorizer;
+pub use siwe::{
+    compose as compose_siwe, verify as verify_siwe, verify_for_domain as verify_siwe_for_domain, SiweError, SiweMessage,
+};
 
 pub const API_KEY_PREFIX: &str = "pcc_sk_";
 

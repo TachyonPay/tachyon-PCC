@@ -1,5 +1,5 @@
 import type { Address, PublicClient } from "viem";
-import { parseDelegation, type DelegationState } from "./delegation.js";
+import { parseDelegation, type DelegationState } from "./delegation";
 
 /** Read-only: fetches account code via the provided client and parses it. */
 export async function readDelegation(client: Pick<PublicClient, "getCode">, address: Address): Promise<DelegationState> {

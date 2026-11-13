@@ -5,6 +5,7 @@
 //! never re-broadcasts anything (broadcast lives in the executor, gated).
 
 pub mod backoff;
+pub mod webhook;
 
 use chrono::{DateTime, Utc};
 use pcc_payments::domain::PaymentAttemptId;

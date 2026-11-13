@@ -4,22 +4,29 @@
 //! `preflight --allocate-deposit`: live `dry:false` quote + source-tx simulation.
 //! Still never broadcasts.
 //!
-//! `execute` is intentionally refused in this binary: the CLI attempt store is
-//! in-memory (lost between processes). Persist-then-broadcast is covered by
-//! the Anvil tests and will be wired to Postgres in M6. Even then, execute
-//! must pass DRY_RUN / ENABLE_MAINNET_TRANSFERS / a non-empty approval ref.
+//! `execute --from --to --amount --approval-ref`: owner-approved broadcast of
+//! one ERC-20 transfer. Attempts are not in Postgres yet (M6); the FileLedger
+//! under `.pcc-ledger/` is the restart-safety for this path. Still requires
+//! DRY_RUN=false, ENABLE_MAINNET_TRANSFERS=true, and a non-empty approval ref.
 
 use alloy::primitives::Address;
 use anyhow::{bail, Context};
 use chrono::{Duration, Utc};
 use pcc_evm::envfile;
+use pcc_evm::keys::load_signer;
+use pcc_evm::{AlloyEoaExecutor, FileLedger};
 use pcc_integration_client::{IntegrationClient, IntegrationClientConfig};
 use pcc_payments::amount::BaseUnits;
 use pcc_payments::asset::{AssetId, ChainId, TokenRef};
+use pcc_payments::domain::PaymentAttemptId;
+use pcc_payments::gates::ExecutionGates;
 use pcc_payments::quote::Confidentiality;
-use pcc_payments::traits::{OneClickAdapter, QuoteSpec};
-use std::path::PathBuf;
+use pcc_payments::traits::{DepositPlan, OneClickAdapter, QuoteSpec, SourceExecutor};
+use sha2::{Digest, Sha256};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::time::Duration as StdDuration;
+use uuid::Uuid;
 
 const ORIGIN_DEFAULT: &str = "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near";
 const DEST_DEFAULT: &str = "nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near";
@@ -53,21 +60,16 @@ async fn main() -> anyhow::Result<()> {
             let allocate = args.any(|a| a == "--allocate-deposit");
             preflight(allocate).await
         }
-        "execute" => {
-            bail!(
-                "execute is refused in this CLI until attempts persist in Postgres (M6).\n\
-                 Anvil tests cover persist-then-broadcast + restart idempotency.\n\
-                 Default gates would also refuse: DRY_RUN={} ENABLE_MAINNET_TRANSFERS={}.",
-                pcc_payments::ExecutionGates::from_env().dry_run,
-                pcc_payments::ExecutionGates::from_env().enable_mainnet_transfers
-            )
-        }
+        "execute" => execute(args.collect()).await,
         _ => {
             eprintln!(
                 "pcc-deposit preflight [--allocate-deposit]\n\
-                 pcc-deposit execute   (refused until M6 persistence)\n\n\
+                 pcc-deposit execute --from <addr> --to <deposit> --amount <base-units> \\\n\
+                     --approval-ref <id> [--token <erc20>] [--chain <id>] [--max-fee-wei <n>] \\\n\
+                     [--attempt-id <uuid>]\n\n\
                  preflight talks to the local TS worker (INTEGRATIONS_BASE_URL).\n\
-                 --allocate-deposit is a live 1Click dry:false quote; still no broadcast."
+                 --allocate-deposit is a live 1Click dry:false quote; still no broadcast.\n\
+                 execute broadcasts one ERC-20 transfer after ExecutionGates pass."
             );
             Ok(())
         }
@@ -167,4 +169,217 @@ async fn preflight(allocate: bool) -> anyhow::Result<()> {
         }))?
     );
     Ok(())
+}
+
+const USDC_BASE_ADDR: &str = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const DEFAULT_MAX_FEE_WEI: &str = "100000000000000"; // 0.0001 ETH
+
+struct ExecuteArgs {
+    from: Address,
+    to: Address,
+    amount: BaseUnits,
+    token: Address,
+    chain_id: ChainId,
+    approval_ref: String,
+    max_fee_wei: BaseUnits,
+    attempt_id: PaymentAttemptId,
+}
+
+fn flag_map(argv: &[String]) -> anyhow::Result<HashMap<String, String>> {
+    let mut out = HashMap::new();
+    let mut i = 0;
+    while i < argv.len() {
+        let key = &argv[i];
+        anyhow::ensure!(key.starts_with("--"), "unexpected argument {key}");
+        let val = argv.get(i + 1).with_context(|| format!("{key} requires a value"))?;
+        anyhow::ensure!(!val.starts_with("--"), "{key} requires a value");
+        out.insert(key.clone(), val.clone());
+        i += 2;
+    }
+    Ok(out)
+}
+
+fn require_flag(flags: &HashMap<String, String>, name: &str) -> anyhow::Result<String> {
+    flags
+        .get(name)
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .with_context(|| format!("{name} is required"))
+}
+
+fn parse_execute_args(argv: &[String]) -> anyhow::Result<ExecuteArgs> {
+    let flags = flag_map(argv)?;
+    let from: Address = require_flag(&flags, "--from")?.parse().context("--from")?;
+    let to: Address = require_flag(&flags, "--to")?.parse().context("--to")?;
+    let amount_s = require_flag(&flags, "--amount")?;
+    let amount = BaseUnits::parse_base_units(&amount_s).context("--amount")?;
+    let approval_ref = require_flag(&flags, "--approval-ref")?;
+    let token: Address = flags
+        .get("--token")
+        .map_or(USDC_BASE_ADDR, String::as_str)
+        .parse()
+        .context("--token")?;
+    let chain_id = ChainId(
+        flags
+            .get("--chain")
+            .map_or("8453", String::as_str)
+            .parse()
+            .context("--chain")?,
+    );
+    let max_fee_wei =
+        BaseUnits::parse_base_units(flags.get("--max-fee-wei").map_or(DEFAULT_MAX_FEE_WEI, String::as_str))
+            .context("--max-fee-wei")?;
+    if chain_id != ChainId::BASE {
+        bail!("this CLI execute only sends on Base (8453) until M6");
+    }
+    let expected_token: Address = USDC_BASE_ADDR.parse().expect("static USDC address");
+    if token != expected_token {
+        bail!("this CLI execute only sends Base USDC until M6");
+    }
+    let attempt_id = if let Some(s) = flags.get("--attempt-id") {
+        PaymentAttemptId(Uuid::parse_str(s).context("--attempt-id")?)
+    } else {
+        attempt_id_from_plan(from, to, &amount, token, chain_id.0)
+    };
+    Ok(ExecuteArgs {
+        from,
+        to,
+        amount,
+        token,
+        chain_id,
+        approval_ref,
+        max_fee_wei,
+        attempt_id,
+    })
+}
+
+fn attempt_id_from_plan(
+    from: Address,
+    to: Address,
+    amount: &BaseUnits,
+    token: Address,
+    chain: u64,
+) -> PaymentAttemptId {
+    let mut hasher = Sha256::new();
+    hasher.update(from.as_slice());
+    hasher.update(to.as_slice());
+    hasher.update(amount.to_string().as_bytes());
+    hasher.update(token.as_slice());
+    hasher.update(chain.to_le_bytes());
+    let digest = hasher.finalize();
+    let mut bytes = [0u8; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    PaymentAttemptId(Uuid::from_bytes(bytes))
+}
+
+fn ledger_dir() -> anyhow::Result<PathBuf> {
+    if let Ok(p) = std::env::var("PCC_LEDGER_DIR") {
+        let t = p.trim();
+        if !t.is_empty() {
+            return Ok(PathBuf::from(t));
+        }
+    }
+    let cwd = std::env::current_dir().context("cwd")?;
+    let root = envfile::find_dotenv(&cwd)
+        .and_then(|p| p.parent().map(Path::to_path_buf))
+        .unwrap_or(cwd);
+    Ok(root.join(".pcc-ledger"))
+}
+
+async fn execute(argv: Vec<String>) -> anyhow::Result<()> {
+    let parsed = parse_execute_args(&argv)?;
+    let key_ref = req_env("SOURCE_EXECUTOR_KEY_REF")?;
+    let signer = load_signer(&key_ref).context("load SOURCE_EXECUTOR_KEY_REF")?;
+    if signer.address() != parsed.from {
+        bail!(
+            "loaded signer {} does not match --from {}",
+            signer.address(),
+            parsed.from
+        );
+    }
+    let rpc = req_env("RPC_URL_BASE")?;
+    let gates = ExecutionGates::from_env();
+    let ledger = FileLedger::new(ledger_dir()?).context("open FileLedger")?;
+    let exec = AlloyEoaExecutor::connect(&rpc, signer, gates, ledger).context("connect executor")?;
+
+    let plan = DepositPlan {
+        attempt_id: parsed.attempt_id,
+        chain_id: parsed.chain_id,
+        asset: AssetId {
+            chain_id: parsed.chain_id,
+            token: TokenRef::Erc20 { address: parsed.token },
+            decimals: 6,
+            one_click_asset_id: ORIGIN_DEFAULT.into(),
+        },
+        from: parsed.from,
+        to: parsed.to,
+        amount: parsed.amount,
+        max_fee_wei: parsed.max_fee_wei,
+        approval_ref: parsed.approval_ref.clone(),
+        mandate: None,
+    };
+
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "phase": "pre-broadcast",
+            "attemptId": plan.attempt_id.to_string(),
+            "chainId": plan.chain_id.0,
+            "token": format!("{:#x}", parsed.token),
+            "from": format!("{:#x}", plan.from),
+            "to": format!("{:#x}", plan.to),
+            "amount": plan.amount.to_string(),
+            "maxFeeWei": plan.max_fee_wei.to_string(),
+            "approvalRef": plan.approval_ref,
+            "dryRun": gates.dry_run,
+            "enableMainnetTransfers": gates.enable_mainnet_transfers,
+        }))?
+    );
+
+    let sim = exec.simulate(&plan).await.context("simulate")?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "phase": "simulation",
+            "ok": sim.ok,
+            "gasEstimate": sim.gas_estimate,
+            "maxFeeWei": sim.max_fee_wei.to_string(),
+            "notes": sim.notes,
+        }))?
+    );
+    if !sim.ok {
+        bail!("simulation failed; refusing to sign");
+    }
+
+    let hash = exec.execute_deposit(&plan).await.context("broadcast")?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "phase": "broadcast",
+            "txHash": format!("{hash:#x}"),
+        }))?
+    );
+
+    for _ in 0..45 {
+        if let Some(receipt) = exec.receipt(parsed.chain_id, hash).await.context("receipt")? {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "phase": "receipt",
+                    "txHash": format!("{:#x}", receipt.tx_hash),
+                    "blockNumber": receipt.block_number,
+                    "success": receipt.success,
+                    "gasUsed": receipt.gas_used,
+                }))?
+            );
+            if !receipt.success {
+                bail!("transaction mined but reverted");
+            }
+            return Ok(());
+        }
+        tokio::time::sleep(StdDuration::from_secs(2)).await;
+    }
+    bail!("broadcast sent ({hash:#x}) but no receipt after ~90s; check the explorer and retry execute with the same flags to rebroadcast the ledgered tx");
 }

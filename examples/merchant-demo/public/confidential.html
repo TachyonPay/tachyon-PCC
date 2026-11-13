@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Harborline — Confidential swap</title>
+    <link rel="icon" href="/boat.svg" />
+    <link rel="stylesheet" href="/shop.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="/">
+        <img src="/boat.svg" alt="" width="32" height="32" />
+        Harborline
+      </a>
+      <p class="pill">No public correlation</p>
+    </header>
+    <main class="return">
+      <p class="kicker">1Click confidential swap</p>
+      <h1>The pay and the payout do not share a counterparty</h1>
+      <p class="lede">
+        The payer sent USDC to a 1Click deposit on Base. Harborline received USDC on Arbitrum from a different
+        address. A public observer cannot join those two transfers into one payment.
+      </p>
+      <div class="swap-grid" id="swap">
+        <article>
+          <h2>Base · payer send</h2>
+          <p>USDC left the payer and arrived at a 1Click deposit. That deposit is not Harborline.</p>
+          <dl>
+            <div>
+              <dt>From</dt>
+              <dd class="mono" id="base-from">—</dd>
+            </div>
+            <div>
+              <dt>To</dt>
+              <dd class="mono" id="base-to">—</dd>
+            </div>
+            <div>
+              <dt>Tx</dt>
+              <dd><a id="base-link" href="https://basescan.org/" rel="noreferrer">Open BaseScan</a></dd>
+            </div>
+          </dl>
+        </article>
+        <article>
+          <h2>Arbitrum · merchant receive</h2>
+          <p>USDC arrived at Harborline’s payout address from a swap leg that is not the payer.</p>
+          <dl>
+            <div>
+              <dt>From</dt>
+              <dd class="mono" id="arb-from">—</dd>
+            </div>
+            <div>
+              <dt>To</dt>
+              <dd class="mono" id="arb-to">—</dd>
+            </div>
+            <div>
+              <dt>Tx</dt>
+              <dd><a id="arb-link" href="https://arbiscan.io/" rel="noreferrer">Open Arbiscan</a></dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+      <p class="ok-badge" id="verdict">No shared address on both legs.</p>
+      <p class="actions">
+        <a class="cta" href="/#orders">Back to orders</a>
+        <a href="/">Shop</a>
+      </p>
+    </main>
+    <script>
+      const q = new URLSearchParams(location.search);
+      const order = q.get("order") || "boat-1794424198618";
+      fetch(`/api/order?order=${encodeURIComponent(order)}`)
+        .then((r) => r.json())
+        .then((body) => {
+          if (!body.merchant_order_id) return;
+          document.getElementById("base-from").textContent = body.payer || "—";
+          document.getElementById("base-to").textContent = body.deposit_address || "—";
+          document.getElementById("arb-from").textContent = body.arb_from || "—";
+          document.getElementById("arb-to").textContent = body.receiving_address || "—";
+          if (body.explorers?.base) document.getElementById("base-link").href = body.explorers.base;
+          if (body.explorers?.arbitrum) document.getElementById("arb-link").href = body.explorers.arbitrum;
+          const payer = (body.payer || "").toLowerCase();
+          const deposit = (body.deposit_address || "").toLowerCase();
+          const arbFrom = (body.arb_from || "").toLowerCase();
+          const recv = (body.receiving_address || "").toLowerCase();
+          const linked = Boolean(payer && arbFrom && payer === arbFrom) || Boolean(deposit && recv && deposit === recv);
+          const verdict = document.getElementById("verdict");
+          verdict.textContent = linked
+            ? "These legs share an address — check the explorers."
+            : "No shared counterparty. BaseScan and Arbiscan cannot correlate this checkout.";
+        })
+        .catch(() => undefined);
+    </script>
+  </body>
+</html>

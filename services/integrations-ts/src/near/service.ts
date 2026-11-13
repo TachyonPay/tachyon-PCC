@@ -15,6 +15,9 @@ import { verifyQuoteResponse } from "./verify.js";
 
 const BaseUnits = z.string().regex(/^[0-9]+$/);
 
+/** Sent on every quote; part of the signed payload. */
+export const QUOTE_WAITING_TIME_MS = 3000;
+
 /** Mirrors `QuoteRequestDto` in the Rust contract. */
 export const QuoteRequestDtoSchema = z
   .object({
@@ -177,7 +180,7 @@ export class NearService {
       recipientType: "DESTINATION_CHAIN",
       deadline: new Date(deadlineMs).toISOString(),
       confidentiality: dto.confidentiality,
-      quoteWaitingTimeMs: 3000,
+      quoteWaitingTimeMs: QUOTE_WAITING_TIME_MS,
     };
 
     let result;
@@ -211,9 +214,20 @@ export class NearService {
     if (!depositAddress) throw err.invalid("depositAddress required");
     if (!this.client.hasApiKey) throw err.upstreamUnauthorized();
     const s = await this.client.getStatus(depositAddress, depositMemo);
-    // The status payload embeds the original signed quote; re-verify it so a
-    // tampered status response cannot smuggle a different quote.
-    verifyQuoteResponse(s.quoteResponse, this.verifyOpts());
+    // /v0/status echoes the signed quote but drops `quoteWaitingTimeMs` from
+    // quoteRequest; the signature covers it, so restore the value we always send.
+    const qr = s.quoteResponse;
+    verifyQuoteResponse(
+      {
+        ...qr,
+        correlationId: qr.correlationId ?? s.correlationId,
+        quoteRequest: { ...qr.quoteRequest, quoteWaitingTimeMs: qr.quoteRequest.quoteWaitingTimeMs ?? QUOTE_WAITING_TIME_MS },
+      },
+      this.verifyOpts(),
+    );
+    if (qr.quote.depositAddress?.toLowerCase() !== depositAddress.toLowerCase()) {
+      throw err.signatureInvalid("status quote is for a different deposit address");
+    }
     const out: SwapStatusDto = {
       status: s.status,
       updatedAt: s.updatedAt,

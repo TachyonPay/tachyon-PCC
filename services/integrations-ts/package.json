@@ -17,6 +17,14 @@
     "start": "tsx src/server/index.ts",
     "live:dry-quote": "tsx scripts/live-dry-quote.ts",
     "live:eoa-preflight": "tsx scripts/live-eoa-preflight.ts",
+    "live:eoa-watch": "tsx scripts/live-eoa-watch.ts",
+    "e2e:checkout-gated": "tsx scripts/e2e-checkout-gated.ts",
+    "local:wallet": "tsx scripts/local-injected-wallet.ts",
+    "e2e:autopay-gated": "tsx scripts/e2e-autopay-gated.ts",
+    "live:sepolia-preflight": "tsx scripts/live-sepolia-preflight.ts",
+    "live:base-sepolia-7702": "tsx scripts/live-base-sepolia-7702.ts",
+    "live:base-7702-install": "tsx scripts/live-base-7702-install.ts",
+    "live:base-7702-1click": "tsx scripts/live-base-7702-1click.ts",
     "live:tokens": "tsx scripts/live-tokens.ts"
   },
   "dependencies": {
@@ -24,6 +32,7 @@
     "@zerodev/ecdsa-validator": "5.4.9",
     "@zerodev/permissions": "5.6.4",
     "@zerodev/sdk": "5.5.11",
+    "tslib": "^2.9.1",
     "viem": "2.57.16",
     "zod": "4.6.7"
   },

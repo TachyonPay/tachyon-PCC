@@ -20,6 +20,9 @@ importers:
       '@zerodev/sdk':
         specifier: 5.5.11
         version: 5.5.11(viem@2.57.16(typescript@5.9.3)(zod@4.6.7))
+      tslib:
+        specifier: ^2.9.1
+        version: 2.9.1
       viem:
         specifier: 2.57.16
         version: 2.57.16(typescript@5.9.3)(zod@4.6.7)
@@ -943,6 +946,9 @@ packages:
   treeify@1.1.0:
     resolution: {integrity: sha512-1m4RA7xVAJrSGrrXGs0L3YTwyvBs2S8PbRHaLZAkFw7JR8oIFwYtysxlBZhYIa7xSyiYJKZ3iGrrk55cGA3i9A==}
     engines: {node: '>=0.6'}
+
+  tslib@2.9.1:
+    resolution: {integrity: sha512-a4Ux9VKuIMHsOS7ENbEq6hK2ZGYIT27Rtl0E4eD9KqwxhKiQeMZE/9xb3IdYwWaSOyIBQLExhQgXDTYoiCxnWA==}
 
   tsx@4.23.15:
     resolution: {integrity: sha512-Yiex1Ovn8z2xPpOWckIiysV1SSyRMY9BkLF++q0yKiDxCqRhosKfMg3janKkiLBwZ5c/YryloKwGZcrEmtwxKw==}
@@ -1887,6 +1893,8 @@ snapshots:
   tinyrainbow@3.2.0: {}
 
   treeify@1.1.0: {}
+
+  tslib@2.9.1: {}
 
   tsx@4.23.15:
     dependencies:

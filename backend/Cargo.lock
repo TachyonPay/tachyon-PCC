@@ -1474,6 +1474,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "data-encoding"
+version = "2.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
+
+[[package]]
 name = "deadpool"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1725,7 +1731,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2955,31 +2961,52 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 name = "pcc-api"
 version = "0.1.0"
 dependencies = [
+ "alloy",
+ "alloy-primitives",
  "anyhow",
+ "async-trait",
  "axum",
+ "chrono",
+ "hex",
  "http-body-util",
  "pcc-auth",
  "pcc-integration-client",
+ "pcc-merchants",
  "pcc-payments",
+ "pcc-settlement",
+ "rand 0.8.8",
+ "reqwest",
  "serde",
  "serde_json",
+ "sha2",
+ "thiserror",
  "tokio",
  "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",
  "utoipa",
+ "uuid",
+ "wiremock",
 ]
 
 [[package]]
 name = "pcc-auth"
 version = "0.1.0"
 dependencies = [
+ "alloy",
+ "async-trait",
+ "chrono",
+ "data-encoding",
  "hex",
+ "hmac",
+ "pcc-payments",
  "rand 0.8.8",
+ "sha1",
  "sha2",
  "subtle",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -3070,11 +3097,17 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "chrono",
+ "hex",
+ "hmac",
  "pcc-payments",
  "pcc-storage",
+ "reqwest",
+ "sha2",
+ "subtle",
  "thiserror",
  "tokio",
  "tracing",
+ "wiremock",
 ]
 
 [[package]]
@@ -3377,7 +3410,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3746,7 +3779,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4469,7 +4502,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

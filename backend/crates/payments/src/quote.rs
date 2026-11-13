@@ -200,8 +200,9 @@ pub fn validate_quote(
             max_debit: exp.max_debit,
         });
     }
-    // Slippage buffer check: amount_in <= min_amount_in * (1 + cap).
-    if let Ok(cap) = q.min_amount_in.bps_ceil(exp.max_slippage_bps) {
+    // Slippage buffer check: min_amount_in >= amount_in * (1 - cap), matching
+    // how 1Click derives minAmountIn from amountIn.
+    if let Ok(cap) = q.amount_in.bps_ceil(exp.max_slippage_bps) {
         if let Ok(limit) = q.min_amount_in.checked_add(cap) {
             if q.amount_in > limit {
                 v.push(QuoteViolation::ExcessiveSlippage {
@@ -431,6 +432,18 @@ mod tests {
         q.min_amount_in = BaseUnits::from_u128(1_000_000);
         q.amount_in = BaseUnits::from_u128(1_020_000); // 2% > 1% cap
         only(&q, |e| matches!(e, QuoteViolation::ExcessiveSlippage { .. }));
+    }
+
+    #[test]
+    fn accepts_oneclick_one_percent_buffer() {
+        let mut q = good_quote();
+        q.amount_in = BaseUnits::from_u128(207_419);
+        q.min_amount_in = BaseUnits::from_u128(205_344);
+        let exp = QuoteExpectation {
+            max_debit: BaseUnits::from_u128(207_419),
+            ..expectation()
+        };
+        validate_quote(&q, &exp, now()).unwrap();
     }
 
     #[test]
