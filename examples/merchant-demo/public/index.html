@@ -24,13 +24,14 @@
         <div class="copy">
           <p class="kicker">3D printed · pocket size</p>
           <h1 id="product-name">Mini Hull</h1>
-          <p class="lede">A 12 cm sailboat, printed in one piece. Desk ornament or bathtub captain — your call.</p>
+          <p class="lede">A 12 cm sailboat, printed in one piece. Desk ornament or bathtub captain. Your call.</p>
           <p class="price">0.20 <span>USDC</span></p>
-          <p class="muted">You pay on Base. It settles to the shop as USDC on Arbitrum.</p>
+          <p class="muted">You pay USDC on Ethereum, Optimism, Base, or Arbitrum. Harborline receives USDC on Arbitrum.</p>
           <div class="actions">
             <button type="button" class="cta" id="buy">Buy Mini Hull</button>
             <p class="status" id="status" role="status"></p>
           </div>
+          <p class="muted">Checkout asks whether you want a one-time wallet payment or a standing allowance.</p>
           <p class="error" id="error" role="alert" hidden></p>
         </div>
       </section>
@@ -41,11 +42,11 @@
         </article>
         <article>
           <h2>Pay</h2>
-          <p>0.20 USDC on Arbitrum. You pay on Base. Checkout opens on this page.</p>
+          <p>0.20 USDC. Pay from Ethereum, Optimism, Base, or Arbitrum. Checkout opens on pay.tachyon.pe.</p>
         </article>
         <article>
           <h2>Settle</h2>
-          <p>Harborline receives USDC on Arbitrum. The Base pay and Arbitrum receive are not publicly linked.</p>
+          <p>Harborline receives USDC on Arbitrum only. The pay-in chain and that receive are not publicly linked.</p>
         </article>
       </section>
       <section class="printer" aria-labelledby="printer-title">
@@ -53,15 +54,15 @@
         <div class="printer-grid">
           <figure class="cam">
             <img id="printer-cam" alt="Bambu A1 live camera" width="640" height="360" hidden />
-            <figcaption class="muted" id="printer-cam-caption">Camera waits until the A1 is on this LAN.</figcaption>
+            <figcaption class="muted" id="printer-cam-caption">Live camera stays on the workshop LAN, not this website.</figcaption>
           </figure>
-          <p class="muted" id="printer-status" role="status" aria-atomic="true">Looking for the Bambu on this LAN…</p>
+          <p class="muted" id="printer-status" role="status" aria-atomic="true">Paid Mini Hulls print on the workshop A1 when the Harborline laptop agent is running.</p>
         </div>
       </section>
       <section class="orders" id="orders" aria-labelledby="orders-title">
         <div class="orders-head">
           <h2 id="orders-title">Orders</h2>
-          <p class="muted">A paid Mini Hull is queued on the printer. It starts when the bed is idle.</p>
+          <p class="muted">A paid Mini Hull is queued on the workshop A1. It starts when the bed is idle and the laptop agent is on.</p>
         </div>
         <div id="order-list" class="order-list">
           <p class="muted">Loading orders…</p>

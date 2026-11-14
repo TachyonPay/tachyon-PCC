@@ -13,10 +13,13 @@
     "@pcc/api-types": "workspace:*",
     "@pcc/checkout-sdk": "workspace:*",
     "@pcc/wallet-onboarding": "workspace:*",
+    "@privy-io/react-auth": "^3.51.4",
     "@walletconnect/ethereum-provider": "^2.26.0",
+    "@zerodev/sdk": "5.5.11",
     "next": "16.4.5",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "viem": "2.57.16"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

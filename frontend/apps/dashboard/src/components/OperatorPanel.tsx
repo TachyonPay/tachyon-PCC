@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 
 const API = "";
 
-const CHAIN_NAMES: Record<number, string> = { 8453: "Base", 42161: "Arbitrum" };
+const CHAIN_NAMES: Record<number, string> = { 1: "Ethereum", 10: "Optimism", 8453: "Base", 42161: "Arbitrum" };
 
 /** Mirrors `pcc_api::operator::PendingApprovalView` (operator routes are not in the public OpenAPI). */
 interface PendingApproval {

@@ -204,50 +204,61 @@ function idleEnough(state) {
   return s === "IDLE" || s === "FINISH" || s === "FAILED" || s === "UNKNOWN";
 }
 
-async function scanHost() {
-  const conf = loadConf();
-  if (process.env.BAMBU_HOST) {
-    saveConf({ host: process.env.BAMBU_HOST.trim() });
-    return process.env.BAMBU_HOST.trim();
-  }
-  if (conf.host) return conf.host;
-  const ifaces = os.networkInterfaces();
-  const prefixes = [];
-  for (const addrs of Object.values(ifaces)) {
-    for (const a of addrs ?? []) {
-      if (a.family !== "IPv4" || a.internal) continue;
-      const parts = a.address.split(".");
-      if (parts.length === 4) prefixes.push(`${parts[0]}.${parts[1]}.${parts[2]}`);
-    }
-  }
-  const hosts = [];
-  for (const p of prefixes) {
-    for (let i = 1; i < 255; i++) hosts.push(`${p}.${i}`);
-  }
-  const hit = await new Promise((resolve) => {
-    let left = hosts.length;
-    let done = false;
-    if (!hosts.length) return resolve(null);
-    for (const ip of hosts) {
-      const s = net.connect({ host: ip, port: 8883, timeout: 200 }, () => {
-        s.destroy();
-        if (!done) {
-          done = true;
-          resolve(ip);
-        }
-      });
-      s.on("error", () => {
-        left -= 1;
-        if (!done && left <= 0) resolve(null);
-      });
-      s.on("timeout", () => {
-        s.destroy();
-        left -= 1;
-        if (!done && left <= 0) resolve(null);
-      });
-    }
+function probeMqtt(ip, ms = 500) {
+  return new Promise((resolve) => {
+    const s = net.connect({ host: ip, port: 8883, timeout: ms }, () => {
+      s.destroy();
+      resolve(true);
+    });
+    const fail = () => {
+      s.destroy();
+      resolve(false);
+    };
+    s.on("error", fail);
+    s.on("timeout", fail);
   });
+}
+
+function wlanHosts() {
+  const skip = new Set();
+  const hosts = [];
+  for (const addrs of Object.values(os.networkInterfaces())) {
+    for (const a of addrs ?? []) {
+      const v4 = a.family === "IPv4" || a.family === 4;
+      if (!v4 || a.internal) continue;
+      skip.add(a.address);
+      const parts = a.address.split(".");
+      if (parts.length !== 4) continue;
+      const prefix = `${parts[0]}.${parts[1]}.${parts[2]}`;
+      for (let i = 1; i < 255; i++) hosts.push(`${prefix}.${i}`);
+    }
+  }
+  return hosts.filter((ip) => !skip.has(ip));
+}
+
+async function scanLan() {
+  const hosts = wlanHosts();
+  const concurrency = 32;
+  for (let i = 0; i < hosts.length; i += concurrency) {
+    const batch = hosts.slice(i, i + concurrency);
+    const found = await Promise.all(batch.map(async (ip) => ((await probeMqtt(ip)) ? ip : null)));
+    const hit = found.find(Boolean);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+async function scanHost() {
+  if (process.env.BAMBU_HOST) {
+    const host = process.env.BAMBU_HOST.trim();
+    saveConf({ host });
+    return host;
+  }
+  const conf = loadConf();
+  if (conf.host && (await probeMqtt(conf.host, 1200))) return conf.host;
+  const hit = await scanLan();
   if (hit) saveConf({ host: hit });
+  else if (conf.host) saveConf({ host: "" });
   return hit;
 }
 
@@ -394,12 +405,8 @@ async function publishProject(conf, remote, orderId, extra) {
       task_id: "0",
     },
   };
-  await Promise.race([
-    client.publishAsync(`device/${conf.serial}/request`, JSON.stringify(payload), { qos: 1 }),
-    sleep(5_000).then(() => {
-      throw new Error("mqtt publish timeout");
-    }),
-  ]);
+  // qos 0: A1 LAN often never returns a PUBACK; qos 1 hangs until our timeout.
+  client.publish(`device/${conf.serial}/request`, JSON.stringify(payload), { qos: 0 });
   return waitForStart(20_000, sequence_id);
 }
 
@@ -455,11 +462,40 @@ async function uploadAndStart(orderId) {
   throw new Error(last.reason || "printer did not start");
 }
 
+/** Stop the job on the bed. No-op if the printer is already idle. */
+export async function stopPrint() {
+  const conf = loadConf();
+  if (!conf.host || !conf.serial || !conf.access_code) throw new Error("printer not configured");
+  const client = await ensureMqtt(conf);
+  await snapshot();
+  const before = gcodeState();
+  if (idleEnough(before) && before) return { ok: true, state: before, already_idle: true };
+  clearCommandState();
+  const sequence_id = String(seq++);
+  await Promise.race([
+    client.publishAsync(
+      `device/${conf.serial}/request`,
+      JSON.stringify({ print: { sequence_id, command: "stop", param: "" } }),
+      { qos: 1 },
+    ),
+    sleep(5_000).then(() => {
+      throw new Error("mqtt stop timeout");
+    }),
+  ]);
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const state = gcodeState();
+    if (idleEnough(state) || state === "PAUSE" || state === "STOPPED") return { ok: true, state };
+    await sleep(250);
+  }
+  return { ok: false, state: gcodeState(), reason: "printer did not stop" };
+}
+
 async function snapshot() {
   const conf = loadConf();
   if (!conf.host || !conf.serial || !conf.access_code || !mqttLib) return null;
   const client = await ensureMqtt(conf);
-  await client.publishAsync(
+  client.publish(
     `device/${conf.serial}/request`,
     JSON.stringify({ pushing: { sequence_id: String(seq++), command: "pushall" } }),
     { qos: 0 },
@@ -478,7 +514,7 @@ async function snapshot() {
  */
 export function enqueueIfPaid(order, upsert) {
   if (!order || order.status !== "succeeded") return order;
-  if (order.print?.status && order.print.status !== "error") return order;
+  if (order.print?.status) return order;
   const next = upsert({
     merchant_order_id: order.merchant_order_id,
     print: {

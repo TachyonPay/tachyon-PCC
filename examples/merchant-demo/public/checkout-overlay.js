@@ -59,7 +59,7 @@ export function openHostedCheckout(checkoutUrl) {
   const src = new URL(checkoutUrl);
   src.searchParams.set("pcc_embed", "1");
   frame.src = src.toString();
-  frame.allow = "clipboard-write; publickey-credentials-get";
+  frame.allow = "clipboard-write; publickey-credentials-get; publickey-credentials-create";
   frame.style.cssText = `width:100%;height:100%;border:0;background:${MODAL.sheet}`;
   const media = document.createElement("style");
   media.textContent = `@media (max-width: 480px){#${MODAL_ID}{padding:0!important;align-items:stretch!important}#${MODAL_ID}>div{width:100%!important;height:100%!important;max-height:none!important;border-radius:0!important}}`;

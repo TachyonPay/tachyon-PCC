@@ -78,7 +78,7 @@
             ${row("Order", order.merchant_order_id)}
             ${row("You paid", paid)}
             ${row("Harborline received", `${units(order.output_amount)} USDC on ${order.settle_chain}`)}
-            ${order.deposit_address ? row("1Click deposit (Base)", order.deposit_address) : ""}
+            ${order.deposit_address ? row(`1Click deposit (${order.pay_chain || "pay-in"})`, order.deposit_address) : ""}
             ${order.receiving_address ? row("Payout address (Arbitrum)", order.receiving_address) : ""}
             ${order.base_tx ? row("Base settlement", "View on BaseScan", order.explorers?.base) : ""}
             ${order.arb_tx ? row("Arbitrum settlement", "View on Arbiscan", order.explorers?.arbitrum) : ""}

@@ -20,6 +20,8 @@ export const KERNEL_7702_DELEGATION_ADDRESS: Address = ZD_7702_DELEGATION;
 export const SUPPORTED_7702_CHAINS = {
   sepolia: 11155111,
   baseSepolia: 84532,
+  ethereum: 1,
+  optimism: 10,
   base: 8453,
   arbitrum: 42161,
 } as const;
@@ -32,6 +34,8 @@ export const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as Address
 export type Supported7702Chain = (typeof SUPPORTED_7702_CHAINS)[keyof typeof SUPPORTED_7702_CHAINS];
 
 export const MAINNET_7702_CHAIN_IDS: readonly number[] = [
+  SUPPORTED_7702_CHAINS.ethereum,
+  SUPPORTED_7702_CHAINS.optimism,
   SUPPORTED_7702_CHAINS.base,
   SUPPORTED_7702_CHAINS.arbitrum,
 ];

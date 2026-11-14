@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order update</title>
+  </head>
+  <body>
+    <main>
+      <h1 id="title">Checking the payment</h1>
+      <p id="detail"></p>
+      <p>This page only continues the customer's screen. The store confirms the intent with its API key, or with the webhook, before it fulfills the order.</p>
+    </main>
+    <script>
+      const q = new URLSearchParams(location.search);
+      const result = q.get("pcc_result") || "pending";
+      const title = document.getElementById("title");
+      const detail = document.getElementById("detail");
+      const intent = q.get("pcc_intent") || "";
+      const status = q.get("pcc_status") || "";
+      const attempt = q.get("pcc_attempt_status") || "";
+      if (result === "success") title.textContent = "Payment succeeded";
+      else if (result === "failure") title.textContent = "Payment did not succeed";
+      else title.textContent = "Payment still in progress";
+      detail.textContent = `Intent ${intent}. Status ${status}${attempt ? `. Attempt ${attempt}` : ""}.`;
+    </script>
+  </body>
+</html>

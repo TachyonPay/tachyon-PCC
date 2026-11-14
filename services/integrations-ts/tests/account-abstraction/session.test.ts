@@ -107,7 +107,7 @@ describe("session call policy (offline)", () => {
   });
 
   it("unsupported chain", () => {
-    expect(rejectCode(validateSessionCall(call({ chainId: 1 }), grant(), NOW))).toBe("unsupported_chain");
+    expect(rejectCode(validateSessionCall(call({ chainId: 137 }), grant(), NOW))).toBe("unsupported_chain");
   });
 
   it("mismatched owner / sender", () => {
@@ -231,6 +231,8 @@ describe("Base Sepolia is a 7702 testnet", () => {
   it("is supported and not mainnet-gated", () => {
     expect(isSupported7702Chain(SUPPORTED_7702_CHAINS.baseSepolia)).toBe(true);
     expect(isMainnet7702Chain(SUPPORTED_7702_CHAINS.baseSepolia)).toBe(false);
+    expect(isMainnet7702Chain(SUPPORTED_7702_CHAINS.ethereum)).toBe(true);
+    expect(isMainnet7702Chain(SUPPORTED_7702_CHAINS.optimism)).toBe(true);
   });
 });
 

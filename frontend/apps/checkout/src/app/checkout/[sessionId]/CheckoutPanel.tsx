@@ -11,16 +11,21 @@ import {
   type SiweVerifyResponse,
   type SourceAssetView,
 } from "@pcc/checkout-sdk";
-import { chainIdHex, installKernelDelegation, toSignTypedDataV4 } from "@pcc/wallet-onboarding";
+import { chainIdHex, installKernelDelegation, nativeBalance, tokenBalance, toSignTypedDataV4 } from "@pcc/wallet-onboarding";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clearDevice, loadDevice, saveDevice } from "../../../device";
+import { fundCheckoutWallet, gasReserveWei } from "../../../fund";
+import { installKernelViaUserOp } from "../../../kernel";
+import { privyConfigured, usePrivyPayer, type PrivyPayer } from "../../../privy";
 import { connectWallet, type Eip1193 } from "../../../wallet";
 import { BrandMark } from "../../../components/BrandMark";
+import { TotpSetup } from "../../../totp-setup";
 import { AutopayPanel } from "./AutopayPanel";
+import { X402Pay } from "./X402Pay";
 
 const API = "";
 
-const CHAIN_NAMES: Record<number, string> = { 8453: "Base", 42161: "Arbitrum" };
+const CHAIN_NAMES: Record<number, string> = { 1: "Ethereum", 10: "Optimism", 8453: "Base", 42161: "Arbitrum" };
 
 function formatUnits(base: string, decimals: number): string {
   if (!/^[0-9]+$/.test(base)) return base;
@@ -55,12 +60,32 @@ const ERRORS: Record<string, string> = {
 
 function describe(e: unknown, fallback: string): string {
   if (e instanceof CheckoutApiError) return (e.code && ERRORS[e.code]) || e.message;
-  return e instanceof Error ? e.message : fallback;
+  const msg = e instanceof Error ? e.message : "";
+  if (/already has an embedded wallet/i.test(msg)) return "That Tachyon wallet is already on this device. Continue again.";
+  return msg || fallback;
 }
 
-type Step = "load" | "siwe" | "grant" | "enroll" | "otp" | "done";
+type Step = "load" | "choose" | "x402" | "siwe" | "grant" | "enroll" | "otp" | "done";
 
-export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string; embed?: boolean }) {
+export function CheckoutPanel(props: { sessionId: string; embed?: boolean }) {
+  if (privyConfigured()) return <PrivyCheckoutPanel {...props} />;
+  return <CheckoutPanelView payer={null} {...props} />;
+}
+
+function PrivyCheckoutPanel(props: { sessionId: string; embed?: boolean }) {
+  const payer = usePrivyPayer();
+  return <CheckoutPanelView payer={payer} {...props} />;
+}
+
+function CheckoutPanelView({
+  sessionId,
+  embed = false,
+  payer,
+}: {
+  sessionId: string;
+  embed?: boolean;
+  payer: PrivyPayer | null;
+}) {
   const client = useMemo(() => new CheckoutClient({ baseUrl: API, timeoutMs: 25_000 }), []);
   const provider = useRef<Eip1193 | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +116,11 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
   const [successUrl, setSuccessUrl] = useState<string | null>(null);
   const [intentId, setIntentId] = useState("");
   const [returning, setReturning] = useState(false);
+  const [usdcHeld, setUsdcHeld] = useState<bigint | null>(null);
+  const [ethHeld, setEthHeld] = useState<bigint | null>(null);
+  const [fundsOk, setFundsOk] = useState(false);
+  const [fundInput, setFundInput] = useState("");
+  const siweLock = useRef(false);
 
   const refreshAllowance = useCallback(async () => {
     setAllowance(await client.sessionGrantStatus(sessionId).catch(() => null));
@@ -141,7 +171,7 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
           return;
         }
         if (device) clearDevice();
-        setStep("siwe");
+        setStep("choose");
       } catch (e) {
         if (!cancelled) setError(e instanceof CheckoutApiError ? "Checkout session not found or expired." : "API unreachable.");
       }
@@ -174,8 +204,24 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
   }, [client, enrolled, sessionId]);
 
   const signIn = useCallback(
-    () =>
+    (mode: "privy" | "browser" = payer ? "privy" : "browser") =>
       run("SIWE failed", async () => {
+        if (mode === "privy") {
+          if (!payer) throw new Error("Privy is not configured.");
+          if (!payer.authenticated) {
+            payer.login();
+            return;
+          }
+          const wallet = await payer.provider();
+          provider.current = wallet;
+          const accounts = (await wallet.request({ method: "eth_requestAccounts" })) as string[];
+          const address = accounts[0];
+          if (!address) throw new Error("Wallet returned no address.");
+          const challenge = await client.startSiwe(sessionId, address);
+          const signature = (await wallet.request({ method: "personal_sign", params: [challenge.message, address] })) as string;
+          await afterSignIn(await client.verifySiwe(sessionId, challenge.message, signature));
+          return;
+        }
         const wallet = await connectWallet(setPairingUri);
         provider.current = wallet;
         setPairingUri("");
@@ -186,11 +232,32 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
         const signature = (await wallet.request({ method: "personal_sign", params: [challenge.message, address] })) as string;
         await afterSignIn(await client.verifySiwe(sessionId, challenge.message, signature));
       }),
-    [afterSignIn, client, run, sessionId],
+    [afterSignIn, client, payer, run, sessionId],
   );
+
+  useEffect(() => {
+    if (!payer || !payer.ready || !payer.authenticated || step !== "siwe" || siweLock.current) return;
+    siweLock.current = true;
+    void signIn("privy");
+  }, [payer, signIn, step]);
 
   /** The signed-in wallet, connecting it first when the session came from a remembered device. */
   const walletFor = useCallback(async (): Promise<{ wallet: Eip1193; address: string }> => {
+    if (payer) {
+      if (!payer.authenticated) {
+        payer.login();
+        throw new Error("Sign in to your Tachyon wallet to continue.");
+      }
+      const wallet = await payer.provider();
+      const accounts = (await wallet.request({ method: "eth_accounts" })) as string[];
+      const address = accounts[0];
+      if (!address) throw new Error("Wallet returned no address.");
+      if (signer && address.toLowerCase() !== signer.toLowerCase()) {
+        throw new Error(`Sign in with the Tachyon wallet ${signer}.`);
+      }
+      provider.current = wallet;
+      return { wallet, address };
+    }
     let wallet = provider.current;
     if (!wallet) {
       wallet = await connectWallet(setPairingUri);
@@ -205,20 +272,25 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
     }
     provider.current = wallet;
     return { wallet, address };
-  }, [signer]);
+  }, [payer, signer]);
 
   const switchWallet = useCallback(() => {
     if (deviceToken) void client.forgetDevice(deviceToken).catch(() => undefined);
     clearDevice();
     setDeviceToken("");
     provider.current = null;
+    siweLock.current = false;
     setSigner("");
     setAllowance(null);
     setEnrolled(false);
     setCode("");
+    setUsdcHeld(null);
+    setEthHeld(null);
+    setFundsOk(false);
     setError(null);
     setStep("siwe");
-  }, [client, deviceToken]);
+    if (payer?.authenticated) void payer.logout();
+  }, [client, deviceToken, payer]);
 
   const returnToMerchant = useCallback(
     (view: Pick<CheckoutView, "status" | "attempt_status">, executionNow: string) => {
@@ -277,10 +349,87 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
         const status = selectedAsset ? delegation.find((d) => d.chain_id === selectedAsset.chain_id) : undefined;
         if (!status || status.state !== "none") return;
         const { wallet, address } = await walletFor();
-        await installKernelDelegation(wallet, address as `0x${string}`, status.chain_id);
+        if (payer) {
+          await installKernelViaUserOp({
+            provider: wallet,
+            address: address as `0x${string}`,
+            chainId: status.chain_id,
+            signAuth: () => payer.signKernelAuth(status.chain_id),
+          });
+        } else {
+          await installKernelDelegation(wallet, address as `0x${string}`, status.chain_id);
+        }
         setDelegation((await client.delegation(sessionId)).chains);
       }),
-    [client, delegation, run, sessionId, source, sources, walletFor],
+    [client, delegation, payer, run, sessionId, source, sources, walletFor],
+  );
+
+  const refreshFunds = useCallback(async () => {
+    const selectedAsset = sources.find((s) => s.asset_id === source);
+    if (!selectedAsset || !signer) return;
+    const [usdc, eth] = await Promise.all([
+      tokenBalance(selectedAsset.chain_id, selectedAsset.token_address, signer),
+      nativeBalance(selectedAsset.chain_id, signer),
+    ]);
+    setUsdcHeld(usdc);
+    setEthHeld(eth);
+    if (!quoted || !/^[0-9]+$/.test(quoted)) {
+      setFundsOk(false);
+      return;
+    }
+    const needEth = (delegation.find((d) => d.chain_id === selectedAsset.chain_id)?.state ?? "none") === "none";
+    setFundsOk(usdc >= BigInt(quoted) && (!needEth || eth >= gasReserveWei(selectedAsset.chain_id)));
+  }, [delegation, quoted, signer, source, sources]);
+
+  useEffect(() => {
+    setUsdcHeld(null);
+    setEthHeld(null);
+    setFundsOk(false);
+    setFundInput("");
+  }, [source]);
+
+  useEffect(() => {
+    if (fundInput !== "") return;
+    if (!quoted || !/^[0-9]+$/.test(quoted) || usdcHeld === null) return;
+    const tokenDecimals = sources.find((s) => s.asset_id === source)?.decimals ?? 6;
+    const remain = BigInt(quoted) > usdcHeld ? BigInt(quoted) - usdcHeld : BigInt(quoted);
+    setFundInput(formatUnits(remain.toString(), tokenDecimals));
+  }, [quoted, usdcHeld, fundInput, source, sources]);
+
+  useEffect(() => {
+    if (step !== "grant" || !signer || !payer) return;
+    void refreshFunds().catch(() => undefined);
+  }, [payer, refreshFunds, signer, step]);
+
+  const fundFromMetaMask = useCallback(
+    () =>
+      run("Could not fund the checkout wallet", async () => {
+        const selectedAsset = sources.find((s) => s.asset_id === source);
+        if (!selectedAsset) throw new Error("Pick a source asset first.");
+        if (!quoted || !/^[0-9]+$/.test(quoted)) throw new Error("No quote for that asset right now.");
+        const needEth =
+          (delegation.find((d) => d.chain_id === selectedAsset.chain_id)?.state ?? "none") === "none";
+        const haveEth = ethHeld ?? 0n;
+        const entered = parseUnits(fundInput.trim() || "0", selectedAsset.decimals);
+        if (entered === null) throw new Error("Enter how much USDC MetaMask should send.");
+        const usdcSend = BigInt(entered);
+        const ethNeed = needEth && haveEth < gasReserveWei(selectedAsset.chain_id) ? gasReserveWei(selectedAsset.chain_id) - haveEth : 0n;
+        if (usdcSend <= 0n && ethNeed <= 0n) {
+          setFundsOk(true);
+          return;
+        }
+        await fundCheckoutWallet({
+          onPairingUri: setPairingUri,
+          chainId: selectedAsset.chain_id,
+          token: selectedAsset.token_address,
+          to: signer as `0x${string}`,
+          usdc: usdcSend,
+          eth: ethNeed,
+        });
+        setPairingUri("");
+        await refreshFunds();
+      }),
+    [delegation, ethHeld, fundInput, quoted, refreshFunds, run, signer, source, sources],
   );
 
   const chooseSource = useCallback(
@@ -415,7 +564,7 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
               </dl>
             </>
           )}
-          {step !== "load" ? (
+          {step !== "load" && step !== "choose" && step !== "x402" ? (
             <div className="pay-steps" aria-hidden="true">
               {["siwe", "grant", "otp", "done"].map((id, i) => (
                 <span key={id} data-on={String(stepIndex >= (id === "otp" && step === "enroll" ? 2 : i))} />
@@ -443,11 +592,60 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
               </button>
             </p>
           ) : null}
+          {step === "choose" ? (
+            <div className="pay-actions">
+              <button type="button" className="pay-btn" disabled={busy} onClick={() => setStep("x402")}>
+                Private x402
+              </button>
+              <p className="pay-muted">One wallet transfer. No authenticator and no delegation.</p>
+              <button type="button" className="pay-btn pay-btn-secondary" disabled={busy} onClick={() => setStep("siwe")}>
+                Private checkout
+              </button>
+              <p className="pay-muted">Standing allowance plus authenticator, so later payments skip the wallet popup.</p>
+            </div>
+          ) : null}
+          {step === "x402" ? (
+            <X402Pay
+              sessionId={sessionId}
+              busy={busy}
+              onBusy={setBusy}
+              onError={setError}
+              onBack={() => {
+                setError("");
+                setStep("choose");
+              }}
+              onPaid={(exec, intentStatus) => {
+                setExecution(exec);
+                setError("");
+                setStep("done");
+                void client
+                  .checkout(sessionId)
+                  .then((view) => returnToMerchant({ ...view, status: intentStatus || view.status }, exec))
+                  .catch(() => undefined);
+              }}
+            />
+          ) : null}
           {step === "siwe" ? (
             <div className="pay-actions">
-              <button type="button" className="pay-btn" onClick={() => void signIn()} disabled={busy}>
-                {busy ? "Waiting on your wallet…" : "Continue with wallet"}
-              </button>
+              {payer ? (
+                <>
+                  <button
+                    type="button"
+                    className="pay-btn"
+                    onClick={() => void signIn("privy")}
+                    disabled={busy || !payer.ready}
+                  >
+                    {busy ? "Waiting on your wallet…" : payer.authenticated ? "Continue with Tachyon wallet" : "Create Tachyon wallet"}
+                  </button>
+                  <p className="pay-muted">
+                    Email or Google. Kernel and the allowance stay on this wallet. MetaMask only sends USDC to it.
+                  </p>
+                </>
+              ) : (
+                <button type="button" className="pay-btn" onClick={() => void signIn("browser")} disabled={busy}>
+                  {busy ? "Waiting on your wallet…" : "Continue with wallet"}
+                </button>
+              )}
             </div>
           ) : null}
           {step === "grant" ? (
@@ -465,16 +663,74 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
                 </label>
               ) : null}
               {chainStatus ? (
-                <p className={blocked ? "pay-alert pay-alert-negative" : "pay-muted"}>
+                <p className={blocked && chainStatus.state !== "none" ? "pay-alert pay-alert-negative" : "pay-muted"}>
                   {CHAIN_NAMES[chainStatus.chain_id] ?? chainStatus.chain_id}: {chainStatus.detail}
+                  {blocked && chainStatus.state !== "none"
+                    ? ` Pick another chain in Pay with, or Different wallet. Tachyon will not overwrite the existing ${CHAIN_NAMES[chainStatus.chain_id] ?? "chain"} delegation.`
+                    : ""}
                 </p>
+              ) : null}
+              {payer && signer && selected ? (
+                <div className="pay-stack">
+                  <p className="pay-muted">
+                    Checkout wallet {signer.slice(0, 6)}…{signer.slice(-4)} holds{" "}
+                    {usdcHeld === null ? "…" : `${formatUnits(usdcHeld.toString(), decimals)} ${selected.symbol}`}
+                    {ethHeld === null ? "" : ` and ${formatUnits(ethHeld.toString(), 18)} ETH`} on{" "}
+                    {CHAIN_NAMES[selected.chain_id] ?? selected.chain_id}.
+                  </p>
+                  {usdcHeld === null ? (
+                    <p className="pay-muted">Checking checkout wallet balances…</p>
+                  ) : (
+                    <div className="pay-stack">
+                      {fundsOk ? <p className="pay-alert pay-alert-positive">Funds received on the checkout wallet.</p> : null}
+                      <label className="pay-field">
+                        Top up amount ({selected.symbol})
+                        <input
+                          value={fundInput}
+                          onChange={(e) => setFundInput(e.target.value)}
+                          inputMode="decimal"
+                          autoComplete="off"
+                          aria-describedby="pay-topup-hint"
+                        />
+                      </label>
+                      <p id="pay-topup-hint" className="pay-muted">
+                        This payment needs {quoted ? show(quoted) : "a quote"}. Send more if you want later charges to use
+                        this wallet.
+                      </p>
+                      <div className="pay-actions">
+                        <button
+                          type="button"
+                          className="pay-btn"
+                          onClick={() => void fundFromMetaMask()}
+                          disabled={busy || !quoted || parseUnits(fundInput.trim() || "0", decimals) === null}
+                        >
+                          {busy ? "Waiting on MetaMask…" : "Send USDC from MetaMask"}
+                        </button>
+                        <p className="pay-muted">
+                          MetaMask sends that USDC
+                          {chainStatus?.state === "none" ? " and a little ETH for Kernel gas" : ""} to this address. It
+                          does not install Kernel.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : null}
               {chainStatus?.state === "none" ? (
                 <div className="pay-actions">
-                  <button type="button" className="pay-btn" onClick={() => void installDelegation()} disabled={busy}>
+                  <button
+                    type="button"
+                    className="pay-btn"
+                    onClick={() => void installDelegation()}
+                    disabled={busy || Boolean(payer && !fundsOk)}
+                  >
                     Install delegation on {CHAIN_NAMES[chainStatus.chain_id] ?? chainStatus.chain_id}
                   </button>
-                  <p className="pay-muted">One transaction in your wallet. You pay the gas. An existing delegation is left unchanged.</p>
+                  <p className="pay-muted">
+                    {payer
+                      ? "Your Tachyon wallet signs Kernel. The bundler submits it. Gas is paid from the ETH MetaMask sent here."
+                      : "One type-4 transaction in your wallet. You pay the gas. MetaMask cannot do this step from a website; connect a wallet that can sign EIP-7702, then Sign allowance here."}
+                  </p>
                 </div>
               ) : null}
               {allowance ? (
@@ -504,7 +760,7 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
                   )}
                 </div>
               ) : null}
-              {!allowance?.covers_this_payment ? (
+              {!blocked && !allowance?.covers_this_payment ? (
                 <div className="pay-stack">
                   <p className="pay-muted">Sign once. Later payments from this wallet need only your authenticator code.</p>
                   <label className="pay-field">
@@ -537,7 +793,18 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
                       type="button"
                       className="pay-btn"
                       onClick={() => void grantSpend()}
-                      disabled={busy || blocked || !maxDebit || !capBase || capTooLow || uses < 1 || uses > 20 || days < 1 || days > 30}
+                      disabled={
+                        busy ||
+                        blocked ||
+                        !maxDebit ||
+                        !capBase ||
+                        capTooLow ||
+                        uses < 1 ||
+                        uses > 20 ||
+                        days < 1 ||
+                        days > 30 ||
+                        Boolean(payer && !fundsOk)
+                      }
                     >
                       {busy ? "Waiting on your wallet…" : "Sign allowance"}
                     </button>
@@ -549,11 +816,7 @@ export function CheckoutPanel({ sessionId, embed = false }: { sessionId: string;
           {step === "enroll" ? (
             <section className="pay-stack">
               <p className="pay-muted">Add Tachyon to your authenticator. Shown once.</p>
-              {otpauth ? (
-                <a className="pay-btn" href={otpauth}>
-                  Open authenticator
-                </a>
-              ) : null}
+              {otpauth ? <TotpSetup otpauth={otpauth} /> : null}
               <label className="pay-field">
                 Enrollment code
                 <input

@@ -47,6 +47,8 @@ impl RpcDestinationVerifier {
                 .unwrap_or_else(|| fallback.to_owned())
         };
         let mut rpcs = HashMap::new();
+        rpcs.insert(ChainId::ETHEREUM, rpc("RPC_URL_ETHEREUM", "https://ethereum-rpc.publicnode.com"));
+        rpcs.insert(ChainId::OPTIMISM, rpc("RPC_URL_OPTIMISM", "https://mainnet.optimism.io"));
         rpcs.insert(ChainId::BASE, rpc("RPC_URL_BASE", "https://mainnet.base.org"));
         rpcs.insert(
             ChainId::ARBITRUM,

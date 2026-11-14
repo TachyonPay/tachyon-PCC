@@ -5,7 +5,7 @@ export type Eip1193 = {
 };
 
 const WALLETCONNECT_PROJECT_ID = process.env["NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID"];
-const SOURCE_CHAINS = [8453, 42161] as const;
+const SOURCE_CHAINS = [1, 10, 8453, 42161] as const;
 const LOCAL_SIGNER = "http://127.0.0.1:1790";
 
 function injected(): Eip1193 | undefined {
@@ -58,18 +58,21 @@ export async function connectWallet(onPairingUri: (uri: string) => void): Promis
   const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
   const wc = await EthereumProvider.init({
     projectId: WALLETCONNECT_PROJECT_ID!.trim(),
-    chains: [SOURCE_CHAINS[0]],
-    optionalChains: [SOURCE_CHAINS[1]],
+    chains: [SOURCE_CHAINS[2]],
+    optionalChains: [...SOURCE_CHAINS],
     showQrModal: true,
-    methods: [
-      "personal_sign",
-      "eth_signTypedData_v4",
+    metadata: {
+      name: "Tachyon Pay",
+      description: "Private crypto checkout",
+      url: "https://pay.tachyon.pe",
+      icons: ["https://pay.tachyon.pe/logo.svg"],
+    },
+    methods: ["personal_sign", "eth_signTypedData_v4", "eth_sendTransaction", "wallet_switchEthereumChain"],
+    optionalMethods: [
       "eth_signAuthorization",
       "wallet_signAuthorization",
-      "eth_sendTransaction",
       "eth_getCode",
       "eth_getTransactionCount",
-      "wallet_switchEthereumChain",
     ],
   });
   wc.on("display_uri", onPairingUri);

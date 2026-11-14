@@ -1667,10 +1667,287 @@
           }
         }
       }
+    },
+    "/v1/x402/sessions/{session_id}/prepare": {
+      "post": {
+        "tags": [
+          "x402"
+        ],
+        "operationId": "prepare",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrepareResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/x402/sessions/{session_id}/requirements": {
+      "get": {
+        "tags": [
+          "x402"
+        ],
+        "operationId": "requirements",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Checkout session id from the payment intent",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequirementsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/x402/settle": {
+      "post": {
+        "tags": [
+          "x402"
+        ],
+        "operationId": "settle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FacilitatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/x402/supported": {
+      "get": {
+        "tags": [
+          "x402"
+        ],
+        "operationId": "supported",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportedResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/x402/verify": {
+      "post": {
+        "tags": [
+          "x402"
+        ],
+        "operationId": "verify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FacilitatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AcceptEntry": {
+        "type": "object",
+        "required": [
+          "scheme",
+          "network",
+          "max_amount_required",
+          "asset",
+          "pay_to",
+          "max_timeout_seconds",
+          "extra"
+        ],
+        "properties": {
+          "asset": {
+            "type": "string"
+          },
+          "extra": {
+            "$ref": "#/components/schemas/AcceptExtra"
+          },
+          "max_amount_required": {
+            "type": "string"
+          },
+          "max_timeout_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "network": {
+            "type": "string"
+          },
+          "pay_to": {
+            "type": "string"
+          },
+          "scheme": {
+            "type": "string"
+          }
+        }
+      },
+      "AcceptExtra": {
+        "type": "object",
+        "required": [
+          "name",
+          "chain_id",
+          "chain_name",
+          "asset_id",
+          "decimals",
+          "symbol",
+          "description"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "chain_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "chain_name": {
+            "type": "string"
+          },
+          "decimals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          }
+        }
+      },
       "AllowanceView": {
         "type": "object",
         "required": [
@@ -2071,6 +2348,21 @@
           }
         }
       },
+      "FacilitatorRequest": {
+        "type": "object",
+        "required": [
+          "payment_payload",
+          "payment_requirements"
+        ],
+        "properties": {
+          "payment_payload": {
+            "$ref": "#/components/schemas/PaymentPayloadBody"
+          },
+          "payment_requirements": {
+            "$ref": "#/components/schemas/AcceptEntry"
+          }
+        }
+      },
       "ForgetResponse": {
         "type": "object",
         "required": [
@@ -2373,6 +2665,62 @@
           }
         }
       },
+      "PaymentPayloadBody": {
+        "type": "object",
+        "required": [
+          "x402_version",
+          "scheme",
+          "network",
+          "payload"
+        ],
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/PaymentPayloadInner"
+          },
+          "scheme": {
+            "type": "string"
+          },
+          "x402_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "PaymentPayloadInner": {
+        "type": "object",
+        "required": [
+          "tx_hash",
+          "from",
+          "amount",
+          "asset",
+          "pay_to",
+          "attempt_id"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string"
+          },
+          "asset": {
+            "type": "string"
+          },
+          "attempt_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "pay_to": {
+            "type": "string"
+          },
+          "tx_hash": {
+            "type": "string"
+          }
+        }
+      },
       "PayoutRequest": {
         "type": "object",
         "required": [
@@ -2466,6 +2814,169 @@
             ],
             "format": "int32",
             "description": "Days until it expires (1..=30).",
+            "minimum": 0
+          }
+        }
+      },
+      "PrepareRequest": {
+        "type": "object",
+        "required": [
+          "asset_id",
+          "payer"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "payer": {
+            "type": "string"
+          }
+        }
+      },
+      "PrepareResponse": {
+        "type": "object",
+        "required": [
+          "x402_version",
+          "attempt_id",
+          "session_id",
+          "intent_id",
+          "payer",
+          "quoted_input",
+          "deposit_address",
+          "source_asset",
+          "chain_id",
+          "chain_name",
+          "token_address",
+          "decimals",
+          "symbol",
+          "accepts",
+          "dry_run",
+          "execution"
+        ],
+        "properties": {
+          "accepts": {
+            "$ref": "#/components/schemas/AcceptEntry"
+          },
+          "attempt_id": {
+            "type": "string"
+          },
+          "chain_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "chain_name": {
+            "type": "string"
+          },
+          "decimals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "deposit_address": {
+            "type": "string"
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "execution": {
+            "type": "string"
+          },
+          "intent_id": {
+            "type": "string"
+          },
+          "payer": {
+            "type": "string"
+          },
+          "quoted_input": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "source_asset": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "token_address": {
+            "type": "string"
+          },
+          "x402_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "RequirementsResource": {
+        "type": "object",
+        "required": [
+          "url",
+          "description",
+          "mime_type"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "RequirementsResponse": {
+        "type": "object",
+        "required": [
+          "x402_version",
+          "error",
+          "resource",
+          "accepts",
+          "session_id",
+          "intent_id",
+          "merchant_order_id",
+          "output_amount",
+          "destination_asset",
+          "dry_run"
+        ],
+        "properties": {
+          "accepts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AcceptEntry"
+            }
+          },
+          "destination_asset": {
+            "type": "string"
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "intent_id": {
+            "type": "string"
+          },
+          "merchant_order_id": {
+            "type": "string"
+          },
+          "output_amount": {
+            "type": "string"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/RequirementsResource"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "x402_version": {
+            "type": "integer",
+            "format": "int32",
             "minimum": 0
           }
         }
@@ -2571,6 +3082,65 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          }
+        }
+      },
+      "SettleResponse": {
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "execution": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "intent_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "intent_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "network": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -2766,6 +3336,42 @@
           }
         }
       },
+      "SupportedResponse": {
+        "type": "object",
+        "required": [
+          "x402_version",
+          "scheme",
+          "networks",
+          "description",
+          "totp_required",
+          "eip7702_required"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "eip7702_required": {
+            "type": "boolean"
+          },
+          "networks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scheme": {
+            "type": "string"
+          },
+          "totp_required": {
+            "type": "boolean"
+          },
+          "x402_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
       "TotpCodeRequest": {
         "type": "object",
         "required": [
@@ -2774,6 +3380,29 @@
         "properties": {
           "code": {
             "type": "string"
+          }
+        }
+      },
+      "VerifyResponse": {
+        "type": "object",
+        "required": [
+          "is_valid"
+        ],
+        "properties": {
+          "invalid_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_valid": {
+            "type": "boolean"
+          },
+          "payer": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -2814,6 +3443,10 @@
     {
       "name": "checkout",
       "description": "Public hosted checkout; no merchant keys"
+    },
+    {
+      "name": "x402",
+      "description": "Private x402 facilitator: wallet transfer + confidential Intents; no TOTP or EIP-7702"
     }
   ]
 }

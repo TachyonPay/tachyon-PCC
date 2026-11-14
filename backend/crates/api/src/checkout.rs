@@ -27,12 +27,32 @@ pub fn buffered_max_debit(output: BaseUnits) -> BaseUnits {
     }
 }
 
-/// Source assets the session-key executor can spend: ERC-20s on 7702 chains.
+/// Payer source chains: Ethereum, Optimism, Base, Arbitrum. Merchant payout stays
+/// on the intent snapshot (Harborline: Arbitrum USDC).
+pub const SOURCE_CHAIN_IDS: [ChainId; 4] = [
+    ChainId::ETHEREUM,
+    ChainId::OPTIMISM,
+    ChainId::BASE,
+    ChainId::ARBITRUM,
+];
+
+/// Source assets the session-key executor can spend: ERC-20s on 7702 source chains.
 pub fn selectable_source(asset: &AssetId) -> bool {
-    matches!(asset.token, TokenRef::Erc20 { .. }) && matches!(asset.chain_id, ChainId::BASE | ChainId::ARBITRUM)
+    matches!(asset.token, TokenRef::Erc20 { .. }) && SOURCE_CHAIN_IDS.contains(&asset.chain_id)
 }
 
 pub fn quote_spec(intent: &PaymentIntent, attempt: &PaymentAttempt, dry_ref: bool) -> QuoteSpec {
+    quote_spec_named(intent, attempt, dry_ref, "checkout")
+}
+
+/// Same rules as hosted checkout, with a distinct authorization_ref prefix so
+/// x402 prepare and checkout authorize never reuse the same 1Click auth ref.
+pub fn quote_spec_named(
+    intent: &PaymentIntent,
+    attempt: &PaymentAttempt,
+    dry_ref: bool,
+    kind: &str,
+) -> QuoteSpec {
     let suffix = if dry_ref { "preview" } else { "exec" };
     QuoteSpec {
         source_asset: attempt.source_asset.clone(),
@@ -43,7 +63,7 @@ pub fn quote_spec(intent: &PaymentIntent, attempt: &PaymentAttempt, dry_ref: boo
         confidentiality: Confidentiality::Basic,
         slippage_bps: SLIPPAGE_BPS,
         deadline: Utc::now() + Duration::hours(1),
-        authorization_ref: format!("checkout-{suffix}-{}", attempt.id),
+        authorization_ref: format!("{kind}-{suffix}-{}", attempt.id),
     }
 }
 
@@ -167,6 +187,7 @@ pub async fn settle_authorized(
         approval_ref: approval_ref.clone(),
         mandate,
     };
+
     let simulation: Simulation = ports.simulate(&plan).await?;
     tracing::info!(
         attempt_id = %attempt.id,
@@ -212,4 +233,34 @@ pub async fn settle_authorized(
         execution,
         simulation_ok: Some(simulation.ok),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pcc_payments::asset::AssetId;
+
+    #[test]
+    fn source_chains_are_eth_op_base_arb_erc20() {
+        assert!(selectable_source(&AssetId::usdc_base()));
+        assert!(selectable_source(&AssetId::usdc_arbitrum()));
+        let eth_usdc = AssetId::from_one_click_token(
+            "eth",
+            Some("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"),
+            6,
+            "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+        )
+        .unwrap();
+        let op_usdc = AssetId::from_one_click_token(
+            "op",
+            Some("0x0b2c639c533813f4aa9d7837caf62653d097ff85"),
+            6,
+            "nep141:op-0x0b2c639c533813f4aa9d7837caf62653d097ff85.omft.near",
+        )
+        .unwrap();
+        assert!(selectable_source(&eth_usdc));
+        assert!(selectable_source(&op_usdc));
+        let native = AssetId::from_one_click_token("eth", None, 18, "nep141:eth.omft.near").unwrap();
+        assert!(!selectable_source(&native));
+    }
 }

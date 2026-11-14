@@ -32,6 +32,7 @@ pub mod operator;
 pub mod settle;
 mod store;
 mod urls;
+pub mod x402;
 
 pub use store::Store;
 pub use urls::assert_return_url;
@@ -1034,7 +1035,8 @@ async fn authorize(
         onboarding::delegation_status, grant::prepare_grant, grant::enable_grant, grant::allowance_status,
         grant::revoke_allowance, totp_enroll, totp_reset, totp_confirm,
         authorize, device::resume, device::forget, autopay::setup, autopay::enable, autopay::list_for_payer, autopay::revoke,
-        autopay::list_for_merchant, autopay::charge
+        autopay::list_for_merchant, autopay::charge,
+        x402::supported, x402::requirements, x402::prepare, x402::verify, x402::settle
     ),
     components(schemas(
         Health, GatesView, ErrorBody, CreateIntentRequest, PaymentIntentView, MerchantView, PayoutRequest,
@@ -1048,12 +1050,17 @@ async fn authorize(
         device::DeviceTokenRequest, device::ForgetResponse,
         autopay::MandateSetupRequest, autopay::MandateSetupView, autopay::MandateEnableRequest,
         autopay::MandateView, autopay::ChargeRequest, autopay::ChargeView,
-        EnrollResponse, TotpCodeRequest, AuthorizeRequest, AuthorizeResponse, SignedEventView
+        EnrollResponse, TotpCodeRequest, AuthorizeRequest, AuthorizeResponse, SignedEventView,
+        x402::SupportedResponse, x402::AcceptEntry, x402::AcceptExtra, x402::RequirementsResponse,
+        x402::RequirementsResource, x402::PrepareRequest, x402::PrepareResponse,
+        x402::PaymentPayloadBody, x402::PaymentPayloadInner, x402::FacilitatorRequest,
+        x402::VerifyResponse, x402::SettleResponse
     )),
     tags(
         (name = "meta", description = "Liveness and execution gates"),
         (name = "merchant", description = "API-key authenticated merchant surface"),
-        (name = "checkout", description = "Public hosted checkout; no merchant keys")
+        (name = "checkout", description = "Public hosted checkout; no merchant keys"),
+        (name = "x402", description = "Private x402 facilitator: wallet transfer + confidential Intents; no TOTP or EIP-7702")
     )
 )]
 pub struct PublicApiDoc;
@@ -1333,6 +1340,14 @@ pub fn app(state: AppState) -> Router {
         .route("/v1/autopay", get(autopay::list_for_merchant))
         .route("/v1/autopay/{mandate_id}/charges", post(autopay::charge))
         .route("/v1/checkout/{session_id}/authorize", post(authorize))
+        .route("/v1/x402/supported", get(x402::supported))
+        .route(
+            "/v1/x402/sessions/{session_id}/requirements",
+            get(x402::requirements),
+        )
+        .route("/v1/x402/sessions/{session_id}/prepare", post(x402::prepare))
+        .route("/v1/x402/verify", post(x402::verify))
+        .route("/v1/x402/settle", post(x402::settle))
         .route("/v1/operator/invites", post(operator::issue_invite))
         .route("/v1/operator/approvals", get(operator::list_pending))
         .route("/v1/operator/approvals/{attempt_id}/approve", post(operator::approve))
@@ -2800,11 +2815,13 @@ mod tests {
         let (st, v) = call(app, get(&sid)).await;
         assert_eq!(st, StatusCode::OK, "{v}");
         assert_eq!(v["address"], signer.address().to_string());
-        assert_eq!(v["chains"][0]["chain_id"], 8453);
-        assert_eq!(v["chains"][0]["ready"], true);
-        assert_eq!(v["chains"][1]["chain_id"], 42161);
-        assert_eq!(v["chains"][1]["state"], "unknown");
-        assert_eq!(v["chains"][1]["ready"], false);
+        assert_eq!(v["chains"][0]["chain_id"], 1);
+        assert_eq!(v["chains"][1]["chain_id"], 10);
+        assert_eq!(v["chains"][2]["chain_id"], 8453);
+        assert_eq!(v["chains"][2]["ready"], true);
+        assert_eq!(v["chains"][3]["chain_id"], 42161);
+        assert_eq!(v["chains"][3]["state"], "unknown");
+        assert_eq!(v["chains"][3]["ready"], false);
     }
 
     fn prepare_req(sid: &str, body: serde_json::Value) -> Request<Body> {

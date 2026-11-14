@@ -34,9 +34,10 @@ contracts/broadcast/
 **/.pcc-grant-store/
 examples/merchant-demo/.data/
 
-# Demo recordings (large, local-only)
+# Demo recordings (large, local-only). The README demo is the one exception.
 *.webm
 *.mp4
+!docs/demo/tachyon-demo.mp4
 
 # Agent / editor scaffolding (not product)
 .agents/

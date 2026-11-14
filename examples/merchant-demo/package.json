@@ -2,6 +2,10 @@
   "name": "harborline-shop",
   "private": true,
   "type": "module",
+  "scripts": {
+    "agent": "node printer-agent.mjs",
+    "shop": "node local-shop.mjs"
+  },
   "dependencies": {
     "basic-ftp": "^5.0.5",
     "mqtt": "^5.10.4"

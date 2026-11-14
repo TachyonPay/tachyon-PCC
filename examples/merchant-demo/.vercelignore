@@ -1,0 +1,10 @@
+.data
+node_modules
+*.webm
+.git
+local-shop.mjs
+server.mjs
+printer-agent.mjs
+bambu.mjs
+start-printer-agent.command
+create-intent.mjs

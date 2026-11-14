@@ -1,0 +1,12 @@
+{
+  "framework": null,
+  "rewrites": [
+    { "source": "/health", "destination": "/api/payout" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    }
+  ]
+}

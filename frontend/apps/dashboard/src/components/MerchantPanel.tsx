@@ -37,8 +37,8 @@ interface Revealed {
 }
 
 interface PaymentRow extends PaymentIntentView {
-  product?: string;
-  settlement?: string;
+  product?: string | undefined;
+  settlement?: string | undefined;
 }
 
 const STOREFRONT_ORDERS = "http://127.0.0.1:3002/api/orders";

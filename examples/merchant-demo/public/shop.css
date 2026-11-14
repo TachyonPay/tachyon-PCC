@@ -196,6 +196,81 @@ h1 {
   cursor: not-allowed;
 }
 
+.cta-secondary {
+  background: transparent;
+  color: var(--color-foreground);
+  border: 2px solid var(--color-foreground);
+}
+
+.cta-secondary:hover:not(:disabled) {
+  filter: none;
+  background: #d1fae5;
+}
+
+.pay-choice-label {
+  margin: calc(var(--space) * 2) 0 var(--space);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.pay-choice {
+  margin-top: 0;
+}
+
+.pay-hint {
+  font-size: 0.875rem;
+}
+
+.pay-hint strong {
+  color: var(--color-foreground);
+}
+
+.x402-page .x402-panel {
+  margin: calc(var(--space) * 3) 0;
+  padding: calc(var(--space) * 3);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.x402-page h2 {
+  margin: 0 0 calc(var(--space) * 2);
+  font-size: 1.1rem;
+}
+
+.asset-list {
+  display: grid;
+  gap: var(--space);
+}
+
+.asset-card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  padding: calc(var(--space) * 2);
+  border: 2px solid var(--color-border);
+  border-radius: 0;
+  background: #fff;
+  color: inherit;
+}
+
+.asset-card.is-selected {
+  border-color: var(--color-primary);
+  background: #d1fae5;
+}
+
+.asset-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
 .status {
   margin: 0;
   color: var(--color-muted);

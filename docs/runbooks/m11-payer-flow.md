@@ -29,6 +29,7 @@ live in memory until M9, so restarting the API clears them.
 | `SIWE_DOMAIN` | `host[:port]` payers sign. Default: host:port of `CHECKOUT_BASE_URL`. |
 | `TOTP_WRAP_KEY` | ≥ 32 chars. Unset or shorter = random per-process key with a warning; enrollments die on restart. |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | 32-hex WalletConnect Cloud id. Used only when no injected wallet exists. |
+| `NEXT_PUBLIC_PRIVY_APP_ID` | Privy app id. When set, Wallet A is the Privy embedded wallet (Kernel, SIWE, allowance). MetaMask only sends USDC to that address. TOTP is unchanged. |
 | `AA_BUNDLER` | `memory` for a local fake; anything else = real ZeroDev Kernel + Pimlico. |
 
 ## Allowance

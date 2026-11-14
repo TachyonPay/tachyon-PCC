@@ -1,0 +1,8 @@
+node_modules
+**/.next
+**/*.webm
+**/*.mp4
+**/*.log
+coverage
+.tsbuildinfo
+**/*.tsbuildinfo

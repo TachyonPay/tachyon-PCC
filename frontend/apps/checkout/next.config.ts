@@ -5,7 +5,7 @@ const api = process.env["API_PROXY_TARGET"] ?? "http://127.0.0.1:8080";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ["@pcc/api-types", "@pcc/checkout-sdk", "@pcc/wallet-onboarding"],
+  transpilePackages: ["@pcc/api-types", "@pcc/checkout-sdk", "@pcc/wallet-onboarding", "@zerodev/sdk"],
   // No telemetry, no remote images, no experimental flags for a payment page.
   images: { remotePatterns: [] },
   // The payer's browser talks to this origin. Next forwards `/v1` to the API,

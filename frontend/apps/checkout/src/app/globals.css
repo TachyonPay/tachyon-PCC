@@ -359,6 +359,10 @@ summary:focus-visible {
   padding: 0 var(--space-4);
 }
 
+.pay-actions > .pay-btn-secondary {
+  width: 100%;
+}
+
 .pay-btn-tertiary {
   background: transparent;
   color: var(--color-primary);
@@ -407,6 +411,27 @@ summary:focus-visible {
 .pay-wallet {
   font-size: var(--font-75);
   word-break: break-all;
+}
+
+.pay-totp-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.pay-totp-qr {
+  align-self: center;
+  width: min(196px, 70vw);
+  padding: var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-l);
+}
+
+.pay-totp-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  fill: #111;
 }
 
 .pay-divider {

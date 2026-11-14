@@ -105,7 +105,7 @@ pub async fn delegation_status(
         )
     })?;
     let mut chains = Vec::new();
-    for chain in [ChainId::BASE, ChainId::ARBITRUM] {
+    for chain in crate::checkout::SOURCE_CHAIN_IDS {
         let view = match reader.code(chain, owner).await {
             Ok(code) => classify(chain, &code),
             Err(e) => ChainDelegationView {

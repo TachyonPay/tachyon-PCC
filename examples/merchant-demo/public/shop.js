@@ -1,5 +1,3 @@
-import { openHostedCheckout } from "./checkout-overlay.js";
-
 const buy = document.getElementById("buy");
 const status = document.getElementById("status");
 const errorBox = document.getElementById("error");
@@ -67,6 +65,9 @@ const printerCam = document.getElementById("printer-cam");
 const printerCamCaption = document.getElementById("printer-cam-caption");
 
 function printerLine(p) {
+  if (p.cloud) {
+    return p.error || "The A1 is on the Harborline LAN. This website only takes payment.";
+  }
   if (!p.configured) return "Printer credentials missing.";
   if (!p.deps) return "Printer bridge needs npm install in the shop folder.";
   if (!p.file_ready) return "No sliced Mini Hull file yet. Drop a .gcode.3mf in the shop data folder.";
@@ -141,7 +142,7 @@ buy?.addEventListener("click", async () => {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error ?? "Could not create the order");
     if (status) status.textContent = `Order ${body.order_id}`;
-    openHostedCheckout(body.checkout_url);
+    location.assign(body.checkout_url);
   } catch (e) {
     showError(e instanceof Error ? e.message : "Checkout failed");
     if (status) status.textContent = "";

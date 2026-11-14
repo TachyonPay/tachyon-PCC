@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Harborline — Private x402</title>
+    <link rel="icon" href="/boat.svg" />
+    <link rel="stylesheet" href="/shop.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="/">
+        <img src="/boat.svg" alt="" width="32" height="32" />
+        Harborline
+      </a>
+      <p class="pill">Private x402</p>
+    </header>
+    <main class="return x402-page">
+      <p class="kicker">One-time wallet payment</p>
+      <h1>Pay for Mini Hull</h1>
+      <p class="lede">
+        Pick a chain, confirm in your wallet, and Harborline receives 0.20 USDC on Arbitrum via confidential NEAR Intents.
+        No TOTP. No EIP-7702.
+      </p>
+      <p class="muted" id="order-line">Loading session…</p>
+      <p class="muted" id="gate-line" hidden></p>
+
+      <section class="x402-panel" aria-labelledby="asset-title">
+        <h2 id="asset-title">1. Choose pay-in</h2>
+        <div id="asset-list" class="asset-list" role="listbox" aria-label="Pay-in chain and asset"></div>
+      </section>
+
+      <section class="x402-panel" aria-labelledby="wallet-title">
+        <h2 id="wallet-title">2. Pay with wallet</h2>
+        <p class="muted" id="wallet-line">Connect a wallet when you are ready.</p>
+        <div class="actions">
+          <button type="button" class="cta" id="connect" disabled>Connect wallet</button>
+          <button type="button" class="cta cta-secondary" id="pay" disabled>Send USDC</button>
+          <button type="button" class="cta cta-secondary" id="dry" hidden disabled>Simulate (dry run)</button>
+        </div>
+      </section>
+
+      <p class="status" id="status" role="status"></p>
+      <p class="error" id="error" role="alert" hidden></p>
+      <p class="actions">
+        <a href="/">Back to shop</a>
+        <a href="/">Use private checkout instead</a>
+      </p>
+    </main>
+    <script type="module" src="/x402.js"></script>
+  </body>
+</html>
