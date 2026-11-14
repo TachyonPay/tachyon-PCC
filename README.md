@@ -1,6 +1,6 @@
-# Tachyon
+# Tachyon private payments
 
-Chain agnostic and accountless checkout for humans and agents alike.
+Private checkout and private x402. EIP-7702 turns one allowance into a walletless, card-like payment: a code, a mandate, or autopay releases each later charge.
 
 [![Watch the Tachyon demo](docs/demo/poster.jpg)](docs/demo/tachyon-demo.mp4)
 
