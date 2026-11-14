@@ -2503,6 +2503,10 @@ mod tests {
         assert_eq!(st, StatusCode::OK, "{issued}");
         let token = issued["invite_token"].as_str().unwrap();
         assert!(token.starts_with("pcc_inv_"));
+        let bad_address = serde_json::json!({"name": "Dana Shop", "payout": payout_body("nope")});
+        let (st, err) = call(app.clone(), signup_req(Some(token), &bad_address)).await;
+        assert_eq!(st, StatusCode::BAD_REQUEST, "{err}");
+        assert_eq!(err["code"], "invalid_address");
         let body = serde_json::json!({"name": "Dana Shop", "payout": payout_body("0x5555555555555555555555555555555555555555")});
         let (st, created) = call(app.clone(), signup_req(Some(token), &body)).await;
         assert_eq!(st, StatusCode::CREATED, "{created}");

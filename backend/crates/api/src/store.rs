@@ -479,6 +479,11 @@ impl Store {
         token
     }
 
+    pub fn invite_pending(&self, token: &str) -> bool {
+        let key: [u8; 32] = Sha256::digest(token.as_bytes()).into();
+        self.invites.lock().expect("store").contains(&key)
+    }
+
     pub fn consume_invite(&self, token: &str) -> bool {
         let key: [u8; 32] = Sha256::digest(token.as_bytes()).into();
         self.invites.lock().expect("store").remove(&key)

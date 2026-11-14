@@ -71,8 +71,11 @@ pub async fn signup(
     let presented = headers
         .get(SIGNUP_HEADER)
         .and_then(|v| v.to_str().ok())
+        .map(str::trim)
         .unwrap_or_default();
-    let one_time = !presented.is_empty() && state.store.consume_invite(presented);
+    // Check the invite without spending it. A bad name or payout must leave the
+    // code usable, and a duplicate request must not turn that into "invalid token".
+    let one_time = !presented.is_empty() && state.store.invite_pending(presented);
     let master = state
         .config
         .signup_token_hash
@@ -101,6 +104,13 @@ pub async fn signup(
         ));
     }
     let (asset, receiving) = parse_payout(body.payout)?;
+    if one_time && !state.store.consume_invite(presented) {
+        return Err(fail(
+            StatusCode::UNAUTHORIZED,
+            "unauthorized",
+            "valid signup token required",
+        ));
+    }
     let id = MerchantId::new();
     let payout = pcc_merchants::new_payout_config(id, asset, receiving)
         .map_err(|e| fail(StatusCode::BAD_REQUEST, "invalid_payout", &e.to_string()))?;

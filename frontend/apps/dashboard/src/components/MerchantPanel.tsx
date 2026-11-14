@@ -12,18 +12,18 @@ import {
   type PayoutRequest,
 } from "@pcc/checkout-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_PAYOUT_ASSET, PAYOUT_ASSETS, matchPayout, payoutAssetFor } from "../lib/payoutAssets";
 import { BrandMark } from "./BrandMark";
 import { DashboardShell, type DashNavItem } from "./DashboardShell";
 
 const API = "";
-const USDC = 6;
 
 const EMPTY_PAYOUT: PayoutRequest = {
   receiving_address: "",
-  chain_id: 42161,
-  decimals: 6,
-  one_click_asset_id: "nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near",
-  token_address: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+  chain_id: DEFAULT_PAYOUT_ASSET.chainId,
+  decimals: DEFAULT_PAYOUT_ASSET.decimals,
+  one_click_asset_id: DEFAULT_PAYOUT_ASSET.assetId,
+  token_address: DEFAULT_PAYOUT_ASSET.token,
 };
 
 function describe(e: unknown, fallback: string): string {
@@ -236,7 +236,7 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
   const charge = useCallback(
     (mandateId: string) =>
       withClient("Charge failed", async (client) => {
-        const units = parseBaseUnits(chargeAmount, USDC);
+        const units = parseBaseUnits(chargeAmount, payout.decimals);
         if (!units) throw new Error("Charge amount must look like 0.20");
         const out = await client.chargeMandate(mandateId, {
           merchantOrderId: `autopay-${Date.now()}`,
@@ -247,13 +247,17 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
         setMandates(await client.mandates());
         setIntents(await client.listIntents());
       }),
-    [chargeAmount, withClient],
+    [chargeAmount, payout.decimals, withClient],
   );
 
   const signup = useCallback(async () => {
     const invite = inviteRef.current?.value.trim() ?? "";
     if (!invite) {
       setError("Enter the signup invite token.");
+      return;
+    }
+    if (!payout.receiving_address.trim()) {
+      setError("Enter the receiving address. This is where the merchant gets paid.");
       return;
     }
     setError(null);
@@ -311,7 +315,7 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
   const create = useCallback(
     () =>
       withClient("Create failed", async (client) => {
-        const units = parseBaseUnits(amount, USDC);
+        const units = parseBaseUnits(amount, payout.decimals);
         if (!units) throw new Error("Amount must look like 0.20");
         const intent = await client.createIntent({
           merchantOrderId: orderId,
@@ -322,20 +326,64 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
         setCollectOpen(false);
         if (isAllowedCheckoutUrl(intent.checkout_url)) openHostedCheckout(intent.checkout_url);
       }),
-    [amount, orderId, withClient],
+    [amount, orderId, payout.decimals, withClient],
   );
 
-  const field = (key: keyof PayoutRequest, label: string, numeric = false) => (
-    <label className="dash-field">
-      {label}
-      <input
-        value={String(payout[key] ?? "")}
-        inputMode={numeric ? "numeric" : undefined}
-        onChange={(e) =>
-          setPayout((p) => ({ ...p, [key]: numeric ? Number(e.target.value.replace(/\D/g, "")) : e.target.value }))
-        }
-      />
-    </label>
+  const chosen = matchPayout(payout.chain_id, payout.one_click_asset_id);
+  const networks = [...new Map(PAYOUT_ASSETS.map((a) => [a.chainId, a.network])).entries()];
+  const tokensOnNetwork = PAYOUT_ASSETS.filter((a) => a.chainId === chosen.chainId);
+  const chooseAsset = (asset: (typeof PAYOUT_ASSETS)[number]) =>
+    setPayout((p) => ({
+      ...p,
+      chain_id: asset.chainId,
+      decimals: asset.decimals,
+      token_address: asset.token,
+      one_click_asset_id: asset.assetId,
+    }));
+  const payoutChoice = (
+    <>
+      <label className="dash-field">
+        Receiving address
+        <input
+          value={payout.receiving_address}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => setPayout((p) => ({ ...p, receiving_address: e.target.value }))}
+        />
+      </label>
+      <label className="dash-field">
+        Network
+        <select
+          value={chosen.chainId}
+          onChange={(e) => {
+            const next = payoutAssetFor(Number(e.target.value), chosen.symbol);
+            if (next) chooseAsset(next);
+          }}
+        >
+          {networks.map(([chainId, network]) => (
+            <option key={chainId} value={chainId}>
+              {network}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="dash-field">
+        Token
+        <select
+          value={chosen.symbol}
+          onChange={(e) => {
+            const next = PAYOUT_ASSETS.find((a) => a.chainId === chosen.chainId && a.symbol === e.target.value);
+            if (next) chooseAsset(next);
+          }}
+        >
+          {tokensOnNetwork.map((asset) => (
+            <option key={asset.symbol} value={asset.symbol}>
+              {asset.symbol}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
   );
 
   const stats = useMemo(() => {
@@ -348,12 +396,12 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
       else open += 1;
     }
     return {
-      volume: formatBaseUnits(volume.toString(), USDC),
+      volume: formatBaseUnits(volume.toString(), chosen.decimals),
       captured,
       open,
       mandates: mandates.filter((m) => m.status === "active").length,
     };
-  }, [intents, mandates]);
+  }, [chosen.decimals, intents, mandates]);
 
   return (
     <DashboardShell
@@ -361,6 +409,7 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
       current={tab}
       onNav={(id) => {
         if (id === "operator") return;
+        setError(null);
         setTab(id as Tab);
       }}
       title={TITLES[tab]}
@@ -446,7 +495,7 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
             <article className="dash-stat">
               <p className="dash-stat-label">Volume</p>
               <p className="dash-stat-value">
-                {stats.volume} <span>USDC</span>
+                {stats.volume} <span>{chosen.symbol}</span>
               </p>
             </article>
             <article className="dash-stat">
@@ -489,14 +538,14 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
                         {intent.product ? <div>{intent.product}</div> : null}
                         <code>{intent.merchant_order_id}</code>
                       </td>
-                      <td className="dash-amount">{formatBaseUnits(intent.output_amount, USDC)} USDC</td>
+                      <td className="dash-amount">{formatBaseUnits(intent.output_amount, chosen.decimals)} {chosen.symbol}</td>
                       <td>
                         <span className={statusBadge(intent.status)}>{statusLabel(intent.status)}</span>
                         {intent.settlement ? <div className="dash-muted">{intent.settlement}</div> : null}
                       </td>
                       <td>
                         {intent.status === "succeeded" ? (
-                          <span className="dash-muted">Harborline received this payout</span>
+                          <span className="dash-muted">Payout received</span>
                         ) : isAllowedCheckoutUrl(intent.checkout_url) ? (
                           <span className="dash-table-actions">
                             <button type="button" className="dash-btn" onClick={() => openHostedCheckout(intent.checkout_url)}>
@@ -529,7 +578,7 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
           {mandates.length > 0 ? (
             <div className="dash-create">
               <label className="dash-field">
-                Charge amount (USDC)
+                Charge amount ({chosen.symbol})
                 <input value={chargeAmount} onChange={(e) => setChargeAmount(e.target.value)} inputMode="decimal" />
               </label>
             </div>
@@ -558,7 +607,7 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
                       <td>
                         <code>{m.owner.slice(0, 10)}…</code>
                       </td>
-                      <td className="dash-amount">{formatBaseUnits(m.max_amount, USDC)} USDC</td>
+                      <td className="dash-amount">{formatBaseUnits(m.max_amount, chosen.decimals)} {chosen.symbol}</td>
                       <td>
                         {m.charges_remaining}/{m.charges}
                       </td>
@@ -585,22 +634,18 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
         <div className="dash-card">
           <h2>Recipient settings</h2>
           <p className="dash-lead">
-            Harborline receives Circle USDC on Arbitrum One. Payers send USDC on Base. A 1Click confidential swap
-            settles to this address, so the two legs do not share a public counterparty.
+            Change where this merchant gets paid. New merchants enter this address when they sign up. The payer
+            can send on another chain. NEAR Intents settles the configured asset here, and the two transfers do
+            not share a public counterparty.
           </p>
           {payout.receiving_address ? (
             <p className="dash-ok" role="status">
-              Receiving USDC at {payout.receiving_address} on chain {payout.chain_id} (
-              {payout.token_address ?? "native"}).
+              Receiving {chosen.symbol} at {payout.receiving_address} on {chosen.network}.
             </p>
           ) : (
             <p className="dash-muted">No payout address saved yet.</p>
           )}
-          {field("receiving_address", "Receiving address")}
-          {field("chain_id", "Chain id", true)}
-          {field("one_click_asset_id", "1Click asset id")}
-          {field("token_address", "Token address (optional)")}
-          {field("decimals", "Decimals", true)}
+          {payoutChoice}
           <div className="dash-card-footer">
             <button type="button" className="dash-btn" onClick={() => void savePayout()}>
               Save payout
@@ -633,14 +678,15 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
       {tab === "signup" ? (
         <div className="dash-card">
           <h2>Create a merchant</h2>
-          <p className="dash-muted">Invite only. Uses the payout destination on the Payouts page.</p>
+          <p className="dash-muted">Invite only. The receiving address is where this merchant gets paid.</p>
           <label className="dash-field">
             Business name
             <input value={signupName} onChange={(e) => setSignupName(e.target.value)} maxLength={80} />
           </label>
+          {payoutChoice}
           <label className="dash-field">
             Invite token
-            <input ref={inviteRef} type="password" autoComplete="off" />
+            <input ref={inviteRef} type="text" autoComplete="off" spellCheck={false} name="invite-token" />
           </label>
           <div className="dash-card-footer">
             <button type="button" className="dash-btn" onClick={() => void signup()}>
@@ -671,7 +717,7 @@ export function MerchantPanel({ testMode = true }: { testMode?: boolean }) {
               <input ref={collectOrderRef} value={orderId} onChange={(e) => setOrderId(e.target.value)} />
             </label>
             <label className="dash-field">
-              Amount (USDC)
+              Amount ({chosen.symbol})
               <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" />
             </label>
             <div className="dash-card-footer">
