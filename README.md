@@ -49,6 +49,24 @@ A checkout URL is minted per order: `https://pay.tachyon.pe/checkout/{session}`.
 
 The dashboard is where a merchant signs up, sets the payout, and reads orders. The API key stays in the password field in that tab.
 
+## A settled checkout
+
+Harborline order `boat-1794425358231`. The payer sent 0.207419 USDC on Base. The shop received 0.20 USDC on Arbitrum. The two transfers do not name each other.
+
+| | |
+| --- | --- |
+| Payer deposit | [BaseScan](https://basescan.org/tx/0x9cdc38436963c27c1dad579c69b7738f94d3a6d9ac12e4326751bf707a67b948) |
+| Merchant receipt | [Arbiscan](https://arbiscan.io/tx/0xf34b0e3dbabc06bed2aa46d58afdd59dc2713fd49d5501afa879830913ac33ee) |
+
+## A settled x402 payment
+
+Harborline order `boat-1794666943264`. The payer sent 0.207419 USDC on Base in one wallet transfer. The shop received 0.20 USDC on Arbitrum. The two transfers do not name each other.
+
+| | |
+| --- | --- |
+| Payer deposit | [BaseScan](https://basescan.org/tx/0xa6a4b0a930284c5977115aec0cf2b8943bea581be843c63cdf8b4dd4ad188c27) |
+| Merchant receipt | [Arbiscan](https://arbiscan.io/tx/0xe430e55f8e02bc9af86e59076bc24138e0048953b7ab9846273a314ce5fc5186) |
+
 ## Keys
 
 Signup is invite-gated. Tachyon issues a `MERCHANT_SIGNUP_TOKEN` (at least 24 characters). With that token, either use the dashboard or call the API. The response includes `api_key` (`pcc_sk_` + 64 hex) and `webhook_secret` (`whsec_` + 64 hex) once. Store both. They are not shown again.
